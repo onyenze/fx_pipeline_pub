@@ -27,7 +27,7 @@ export default function Login() {
         <div className="flex flex-col items-center">
           {/* Company Logo */}
           <img 
-            src="../../src/public/images/logo (2).png" 
+            src="../../src/public/logo.png" 
             alt="Company Logo" 
             className="h-16 mb-4"
           />
@@ -100,7 +100,7 @@ export default function Login() {
         <div className="pt-6 mt-6 border-t border-gray-200">
           <div className="flex justify-center items-center text-gray-500 text-sm">
             <img 
-              src="../../src/public/images/logo (2).png" 
+              src="../../src/public/logo.png" 
               alt="Company Logo" 
               className="h-4 mr-2" 
             />

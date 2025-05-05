@@ -184,7 +184,7 @@ export default function AdminUserManagement() {
       <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-200">
         <div className="flex items-center">
           <img 
-            src="../../src/public/images/logo (2).png" 
+            src="../../src/public/logo.png" 
             alt="Company Logo" 
             className="h-12 mr-4"
           />
@@ -399,7 +399,7 @@ export default function AdminUserManagement() {
       <div className="mt-12 pt-4 border-t border-gray-300 flex items-center justify-between">
         <div className="flex items-center">
           <img 
-            src="../../src/public/images/logo (2).png" 
+            src="../../src/public/logo.png" 
             alt="Company Logo" 
             className="h-8 mr-3" 
           />
