@@ -230,7 +230,7 @@ const { error: uploadError } = await supabase
       'Rate.csv'
     ];
 
-    const res = await fetch('https://fx-pub-api.onrender.com', {
+    const res = await fetch('https://fx-pub-api.onrender.com/generate-report', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ inputFiles })
