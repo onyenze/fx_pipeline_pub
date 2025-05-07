@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
-import { FileText, ArrowLeft, CheckCircle, XCircle, Download, Eye } from 'lucide-react';
+import { FileText, ArrowLeft, CheckCircle, XCircle, Download, Eye, FileCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import DocumentPreview from '../pages/documentPreview';
 
@@ -11,6 +11,7 @@ interface Transaction {
   amount: number;
   description: string | null;
   customer_name: string;
+  customer_address: string;
   sector: string;
   nature_of_business: string;
   contact_name: string;
@@ -22,6 +23,7 @@ interface Transaction {
   documentation_type: string;
   funding_status: string;
   purpose: string;
+  tenure: string;
   uploaded_files: string[];
   status: 'pending' | 'approved' | 'denied';
   created_at: string;
@@ -29,11 +31,16 @@ interface Transaction {
   reviewed_by: string | null;
   approved_by: string | null;
   approved_at: string | null;
+  // New field for documentation verification
+  documentation_verified: boolean;
+  verified_by: string | null;
+  verified_at: string | null;
 }
 
 interface User {
   id: string;
   full_name?: string;
+  email?: string;
 }
 
 export default function TransactionDetails() {
@@ -44,6 +51,7 @@ export default function TransactionDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [creator, setCreator] = useState<User | null>(null);
   const [approver, setApprover] = useState<User | null>(null);
+  const [verifier, setVerifier] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   
   // State for document preview
@@ -104,6 +112,11 @@ export default function TransactionDetails() {
       if (data.approved_by) {
         fetchUserInfo(data.approved_by, 'approver');
       }
+      
+      // Fetch verifier user info if exists
+      if (data.verified_by) {
+        fetchUserInfo(data.verified_by, 'verifier');
+      }
     } catch (error) {
       toast.error('Failed to fetch transaction details');
       console.error('Error:', error);
@@ -112,11 +125,11 @@ export default function TransactionDetails() {
     }
   }
 
-  async function fetchUserInfo(userId: string, userType: 'creator' | 'approver') {
+  async function fetchUserInfo(userId: string, userType: 'creator' | 'approver' | 'verifier') {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name')
+        .select('id, full_name, email')
         .eq('id', userId)
         .single();
 
@@ -124,8 +137,10 @@ export default function TransactionDetails() {
       
       if (userType === 'creator') {
         setCreator(data);
-      } else {
+      } else if (userType === 'approver') {
         setApprover(data);
+      } else if (userType === 'verifier') {
+        setVerifier(data);
       }
     } catch (error) {
       console.error(`Failed to fetch ${userType} info:`, error);
@@ -149,6 +164,27 @@ export default function TransactionDetails() {
       fetchTransactionDetails(transaction?.id as string);
     } catch (error) {
       toast.error(`Failed to ${status} transaction`);
+      console.error('Error:', error);
+    }
+  }
+  
+  async function verifyDocumentation() {
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .update({ 
+          documentation_verified: true,
+          verified_by: user?.id,
+          verified_at: new Date().toISOString()
+        })
+        .eq('id', transaction?.id);
+
+      if (error) throw error;
+
+      toast.success('Documentation verified successfully');
+      fetchTransactionDetails(transaction?.id as string);
+    } catch (error) {
+      toast.error('Failed to verify documentation');
       console.error('Error:', error);
     }
   }
@@ -238,6 +274,12 @@ export default function TransactionDetails() {
     navigate(-1);
   }
 
+  // Check if the current user is a treasury user
+  const isTreasuryUser = userRole === 'treasury';
+  
+  // Check if the current user is a trade user
+  const isTradeUser = userRole === 'trade';
+
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-12 flex justify-center">
@@ -288,10 +330,24 @@ export default function TransactionDetails() {
           <h1 className="text-3xl font-bold text-gray-800">Transaction Details</h1>
         </div>
         
+        {/* Treasury user verification button */}
+        {transaction.status === 'pending' && !transaction.documentation_verified && isTreasuryUser && (
+          <div className="flex space-x-3">
+            <button
+              onClick={verifyDocumentation}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <FileCheck className="h-5 w-5 mr-2" />
+              Verify Documentation
+            </button>
+          </div>
+        )}
+        
+        {/* Trade user approval buttons - only visible if documentation is verified */}
         {transaction.status === 'pending' && 
-          // Only show buttons if user is NOT the creator AND not a marketing role
-          user?.id !== transaction.created_by && 
-          userRole !== "marketing" && (
+          transaction.documentation_verified && 
+          isTradeUser && 
+          user?.id !== transaction.created_by && (
             <div className="flex space-x-3">
               <button
                 onClick={() => updateTransactionStatus('approved')}
@@ -318,13 +374,22 @@ export default function TransactionDetails() {
             <h2 className="text-xl font-semibold text-white">
               {transaction.customer_name}
             </h2>
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-              transaction.status === 'approved' ? 'bg-green-200 text-green-800' :
-              transaction.status === 'denied' ? 'bg-red-200 text-red-800' :
-              'bg-yellow-200 text-yellow-800'
-            }`}>
-              {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
-            </span>
+            <div className="flex items-center space-x-2">
+              {/* Documentation Verification Badge */}
+              {transaction.documentation_verified && (
+                <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-200 text-blue-800 mr-2">
+                  Verified Documentation
+                </span>
+              )}
+              {/* Status Badge */}
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                transaction.status === 'approved' ? 'bg-green-200 text-green-800' :
+                transaction.status === 'denied' ? 'bg-red-200 text-red-800' :
+                'bg-yellow-200 text-yellow-800'
+              }`}>
+                {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+              </span>
+            </div>
           </div>
         </div>
         
@@ -336,6 +401,10 @@ export default function TransactionDetails() {
                 <div className="flex flex-col">
                   <p className="text-sm font-medium text-gray-500">Customer Name</p>
                   <p className="text-base font-semibold">{transaction.customer_name || 'N/A'}</p>
+                </div>
+                <div className="flex flex-col">
+                  <p className="text-sm font-medium text-gray-500">Customer Address</p>
+                  <p className="text-base font-semibold">{transaction.customer_address || 'N/A'}</p>
                 </div>
                 <div className="flex flex-col">
                   <p className="text-sm font-medium text-gray-500">Sector</p>
@@ -379,6 +448,10 @@ export default function TransactionDetails() {
                   <p className="text-sm font-medium text-gray-500">Loan Balance</p>
                   <p className="text-base font-semibold">${formatCurrency(transaction.loan_balance)}</p>
                 </div>
+                <div className="flex flex-col">
+                  <p className="text-sm font-medium text-gray-500">Tenure</p>
+                  <p className="text-base font-semibold">{transaction.tenure || 'N/A'}</p>
+                </div>
               </div>
             </div>
           </div>
@@ -418,6 +491,18 @@ export default function TransactionDetails() {
                     <p className="text-sm font-medium text-gray-500">Created At</p>
                     <p className="text-base font-semibold">{new Date(transaction.created_at).toLocaleString() || 'N/A'}</p>
                   </div>
+                  {transaction.documentation_verified && (
+                    <>
+                      <div className="flex flex-col">
+                        <p className="text-sm font-medium text-gray-500">Verified By</p>
+                        <p className="text-base font-semibold">{verifier?.email || 'N/A'}</p>
+                      </div>
+                      <div className="flex flex-col">
+                        <p className="text-sm font-medium text-gray-500">Verified At</p>
+                        <p className="text-base font-semibold">{transaction.verified_at ? new Date(transaction.verified_at).toLocaleString() : 'N/A'}</p>
+                      </div>
+                    </>
+                  )}
                   {transaction.approved_by && (
                     <>
                       <div className="flex flex-col">
@@ -474,22 +559,43 @@ export default function TransactionDetails() {
             </div>
           )}
           
-          {transaction.status !== 'pending' && (
+          {/* Status information section - now includes Verification Status */}
+          {(transaction.documentation_verified || transaction.status !== 'pending') && (
             <div className="mt-8">
-              <div className={`bg-white shadow-md rounded-lg p-5 border-l-4 ${transaction.status === 'approved' ? 'border-green-500' : 'border-red-500'}`}>
+              <div className={`bg-white shadow-md rounded-lg p-5 border-l-4 ${
+                transaction.status === 'approved' ? 'border-green-500' : 
+                transaction.status === 'denied' ? 'border-red-500' : 
+                'border-blue-500'
+              }`}>
                 <h3 className="text-lg font-medium text-gray-800 mb-4 border-b pb-2">Status Information</h3>
-                <div className="flex items-center p-2 rounded-md bg-gray-50">
-                  {transaction.status === 'approved' ? (
-                    <CheckCircle className="h-6 w-6 text-green-600 mr-3" />
-                  ) : (
-                    <XCircle className="h-6 w-6 text-red-600 mr-3" />
-                  )}
-                  <p className="text-base">
-                    This transaction was <span className="font-bold">{transaction.status}</span>
-                    {approver && ` by ${approver.full_name}`}
-                    {transaction.approved_at && ` on ${new Date(transaction.approved_at).toLocaleDateString()}`}
-                  </p>
-                </div>
+                
+                {/* Documentation Verification Status */}
+                {transaction.documentation_verified && (
+                  <div className="flex items-center p-2 rounded-md bg-gray-50 mb-3">
+                    <FileCheck className="h-6 w-6 text-blue-600 mr-3" />
+                    <p className="text-base">
+                      Documentation was <span className="font-bold">verified</span>
+                      {verifier && ` by ${verifier.email}`}
+                      {transaction.verified_at && ` on ${new Date(transaction.verified_at).toLocaleDateString()}`}
+                    </p>
+                  </div>
+                )}
+                
+                {/* Transaction Status */}
+                {transaction.status !== 'pending' && (
+                  <div className="flex items-center p-2 rounded-md bg-gray-50">
+                    {transaction.status === 'approved' ? (
+                      <CheckCircle className="h-6 w-6 text-green-600 mr-3" />
+                    ) : (
+                      <XCircle className="h-6 w-6 text-red-600 mr-3" />
+                    )}
+                    <p className="text-base">
+                      This transaction was <span className="font-bold">{transaction.status}</span>
+                      {approver && ` by ${approver.full_name}`}
+                      {transaction.approved_at && ` on ${new Date(transaction.approved_at).toLocaleDateString()}`}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}

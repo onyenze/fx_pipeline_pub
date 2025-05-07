@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
-import { CheckCircle, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 
@@ -9,9 +8,11 @@ interface Transaction {
   id: string;
   amount: number;
   description: string | null;
+  customer_name:string
   status: 'pending' | 'approved' | 'denied';
   created_at: string;
   created_by: string;
+  sector:string;
 }
 
 export default function TradeDashboard() {
@@ -64,28 +65,28 @@ export default function TradeDashboard() {
     fetchTransactions();
   }, [fetchTransactions]); // Now fetchTransactions includes statusFilter as a dependency
 
-  async function handleStatusUpdate(e: React.MouseEvent, transactionId: string, newStatus: 'approved' | 'denied') {
-    // Prevent the click from propagating to the row and navigating
-    e.stopPropagation();
+  // async function handleStatusUpdate(e: React.MouseEvent, transactionId: string, newStatus: 'approved' | 'denied') {
+  //   // Prevent the click from propagating to the row and navigating
+  //   e.stopPropagation();
     
-    try {
-      const { error } = await supabase
-        .from('transactions')
-        .update({
-          status: newStatus,
-          approved_by: user?.id
-        })
-        .eq('id', transactionId);
+  //   try {
+  //     const { error } = await supabase
+  //       .from('transactions')
+  //       .update({
+  //         status: newStatus,
+  //         approved_by: user?.id
+  //       })
+  //       .eq('id', transactionId);
 
-      if (error) throw error;
+  //     if (error) throw error;
 
-      toast.success(`Transaction ${newStatus} successfully`);
-      fetchTransactions();
-    } catch (error) {
-      toast.error(`Failed to ${newStatus} transaction`);
-      console.error('Error:', error);
-    }
-  }
+  //     toast.success(`Transaction ${newStatus} successfully`);
+  //     fetchTransactions();
+  //   } catch (error) {
+  //     toast.error(`Failed to ${newStatus} transaction`);
+  //     console.error('Error:', error);
+  //   }
+  // }
   
   function navigateToTransactionDetails(transactionId: string) {
     navigate(`/transactions/${transactionId}`);
@@ -164,11 +165,11 @@ export default function TradeDashboard() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer Name</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sector</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -179,10 +180,10 @@ export default function TradeDashboard() {
                     className="cursor-pointer hover:bg-gray-50 transition-colors"
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {transaction.description ? (
-                        <div className="text-sm text-gray-900">{transaction.description}</div>
+                      {transaction.customer_name ? (
+                        <div className="text-sm text-gray-900">{transaction.customer_name}</div>
                       ) : (
-                        <div className="text-sm text-gray-500">No description</div>
+                        <div className="text-sm text-gray-500">N/A</div>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -200,25 +201,12 @@ export default function TradeDashboard() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(transaction.created_at).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {transaction.status === 'pending' && (
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={(e) => handleStatusUpdate(e, transaction.id, 'approved')}
-                            className="text-green-600 hover:text-green-800"
-                            title="Approve"
-                          >
-                            <CheckCircle className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={(e) => handleStatusUpdate(e, transaction.id, 'denied')}
-                            className="text-red-600 hover:text-red-800"
-                            title="Deny"
-                          >
-                            <XCircle className="h-5 w-5" />
-                          </button>
-                        </div>
-                      )}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {transaction.sector ? (
+                          <div className="text-sm text-gray-900">{transaction.sector}</div>
+                        ) : (
+                          <div className="text-sm text-gray-500">N/A</div>
+                        )}
                     </td>
                   </tr>
                 ))}

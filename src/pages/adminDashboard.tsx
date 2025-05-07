@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
-import { Users, UserPlus, RefreshCw } from 'lucide-react';
+import { Users, UserPlus, RefreshCw, LayoutDashboard } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Navigate } from 'react-router-dom';
 
@@ -12,6 +12,12 @@ interface User {
   email: string;
   created_at: string;
   has_profile: boolean;
+}
+
+interface MarketingField {
+  id: string;
+  name: string;
+  description: string;
 }
 
 export default function AdminUserManagement() {
@@ -26,6 +32,14 @@ export default function AdminUserManagement() {
     full_name: '',
     department: ''
   });
+  
+  // New state for marketing dashboard fields
+  const [marketingFields, setMarketingFields] = useState<MarketingField[]>([]);
+  const [newMarketingField, setNewMarketingField] = useState({
+    name: '',
+    description: ''
+  });
+  const [isAddingField, setIsAddingField] = useState(false);
 
   // Role options for the dropdown
   const roleOptions: UserRole[] = ['admin', 'marketing', 'treasury', 'trade'];
@@ -36,6 +50,7 @@ export default function AdminUserManagement() {
     if (user?.id) {
       fetchCurrentUserRole();
       fetchUsers();
+      fetchMarketingFields();
     }
   }, [user?.id]);
 
@@ -96,6 +111,21 @@ export default function AdminUserManagement() {
     }
   }
 
+  // New function to fetch marketing dashboard fields
+  async function fetchMarketingFields() {
+    try {
+      const { data, error } = await supabase
+        .from('marketing_dashboard_fields')
+        .select('*');
+      
+      if (error) throw error;
+      setMarketingFields(data || []);
+    } catch (error) {
+      console.error('Error fetching marketing fields:', error);
+      toast.error('Failed to fetch marketing dashboard fields');
+    }
+  }
+
   async function handleCreateProfile(e: React.FormEvent) {
     e.preventDefault();
     
@@ -144,6 +174,69 @@ export default function AdminUserManagement() {
       toast.error('Failed to create profile');
     } finally {
       setIsCreatingProfile(false);
+    }
+  }
+
+  // New function to add marketing dashboard field
+  async function handleAddMarketingField(e: React.FormEvent) {
+    e.preventDefault();
+    
+    if (!newMarketingField.name.trim()) {
+      toast.error('Field name is required');
+      return;
+    }
+
+    try {
+      setIsAddingField(true);
+      
+      const { data, error } = await supabase
+        .from('marketing_dashboard_fields')
+        .insert([{
+          name: newMarketingField.name,
+          description: newMarketingField.description
+        }])
+        .select();
+
+      if (error) throw error;
+      
+      // Update local state with the new field
+      if (data) {
+        setMarketingFields(prev => [...prev, data[0]]);
+      }
+      
+      toast.success('Marketing dashboard field added successfully');
+      
+      // Reset form
+      setNewMarketingField({
+        name: '',
+        description: ''
+      });
+      
+    } catch (error) {
+      console.error('Error adding marketing field:', error);
+      toast.error('Failed to add marketing dashboard field');
+    } finally {
+      setIsAddingField(false);
+    }
+  }
+
+  // New function to delete marketing dashboard field
+  async function handleDeleteMarketingField(id: string) {
+    try {
+      const { error } = await supabase
+        .from('marketing_dashboard_fields')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      // Update local state by removing the deleted field
+      setMarketingFields(prev => prev.filter(field => field.id !== id));
+      toast.success('Field removed successfully');
+      
+    } catch (error) {
+      console.error('Error deleting field:', error);
+      toast.error('Failed to remove field');
     }
   }
 
@@ -338,6 +431,104 @@ export default function AdminUserManagement() {
         </div>
       </div>
 
+      {/* Marketing Dashboard Fields Section - NEW */}
+      <div className="mt-8 bg-white shadow-md overflow-hidden rounded-lg border border-gray-200">
+        <div className="px-4 py-5 sm:px-6 bg-gray-100 flex justify-between items-center">
+          <div className="flex items-center">
+            <LayoutDashboard className="h-6 w-6 text-red-600 mr-2" />
+            <div>
+              <h2 className="text-lg font-medium text-gray-800">Marketing Dashboard Fields</h2>
+              <p className="mt-1 text-sm text-red-600">Customize the fields displayed on the marketing dashboard</p>
+            </div>
+          </div>
+          <div className="text-sm text-gray-500">
+            <span className="font-medium">{marketingFields.length}</span> custom fields
+          </div>
+        </div>
+        
+        <div className="border-t border-gray-200 px-4 py-5 sm:px-6">
+          {/* Form to add new marketing dashboard field */}
+          <form onSubmit={handleAddMarketingField} className="mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-1">
+                <label htmlFor="field_name" className="block text-sm font-medium text-gray-700">
+                  Field Name
+                </label>
+                <input
+                  type="text"
+                  id="field_name"
+                  name="field_name"
+                  className="mt-1 focus:ring-red-500 focus:border-red-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                  value={newMarketingField.name}
+                  onChange={(e) => setNewMarketingField({...newMarketingField, name: e.target.value})}
+                  placeholder="E.g. Monthly Revenue"
+                  required
+                />
+              </div>
+              <div className="md:col-span-1">
+                <label htmlFor="field_description" className="block text-sm font-medium text-gray-700">
+                  Description (Optional)
+                </label>
+                <input
+                  type="text"
+                  id="field_description"
+                  name="field_description"
+                  className="mt-1 focus:ring-red-500 focus:border-red-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                  value={newMarketingField.description}
+                  onChange={(e) => setNewMarketingField({...newMarketingField, description: e.target.value})}
+                  placeholder="E.g. Total monthly revenue from all sources"
+                />
+              </div>
+              <div className="md:col-span-1 flex items-end">
+                <button
+                  type="submit"
+                  disabled={isAddingField || !newMarketingField.name.trim()}
+                  className={`inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                    !isAddingField && newMarketingField.name.trim()
+                      ? 'bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500' 
+                      : 'bg-gray-300 cursor-not-allowed'
+                  } w-full justify-center`}
+                >
+                  {isAddingField ? 'Adding...' : 'Add Field'}
+                </button>
+              </div>
+            </div>
+          </form>
+
+          {/* List of existing marketing dashboard fields */}
+          <div className="mt-4">
+            <h3 className="text-md font-medium text-gray-700 mb-2">Current Fields</h3>
+            
+            {marketingFields.length > 0 ? (
+              <div className="bg-gray-50 rounded-md overflow-hidden">
+                <ul className="divide-y divide-gray-200">
+                  {marketingFields.map((field) => (
+                    <li key={field.id} className="px-4 py-3 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{field.name}</p>
+                        {field.description && (
+                          <p className="text-xs text-gray-500 mt-1">{field.description}</p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleDeleteMarketingField(field.id)}
+                        className="text-red-600 hover:text-red-800 text-sm font-medium focus:outline-none"
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 py-4 text-center bg-gray-50 rounded-md">
+                No custom marketing dashboard fields have been added yet
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* List of all users with profiles */}
       <div className="mt-8 bg-white shadow-md overflow-hidden rounded-lg border border-gray-200">
         <div className="px-4 py-5 sm:px-6 bg-gray-100 flex justify-between items-center">
@@ -405,7 +596,7 @@ export default function AdminUserManagement() {
           />
           <p className="text-sm text-gray-600">© 2025 Your Company. All rights reserved.</p>
         </div>
-        <p className="text-sm text-red-500">Admin Panel v1.0</p>
+        {/* <p className="text-sm text-red-500">Admin Panel v1.0</p> */}
       </div>
     </div>
   );

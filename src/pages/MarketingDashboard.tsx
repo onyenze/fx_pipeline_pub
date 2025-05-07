@@ -10,6 +10,7 @@ interface Transaction {
   amount: number;
   description: string | null;
   customer_name: string;
+  customer_address: string; // New field
   sector: string;
   nature_of_business: string;
   contact_name: string;
@@ -21,6 +22,7 @@ interface Transaction {
   documentation_type: string;
   funding_status: string;
   purpose: string;
+  tenure: number; // New field
   uploaded_files: string[];
   status: 'pending' | 'approved' | 'denied';
   created_at: string;
@@ -40,6 +42,7 @@ export default function MarketingDashboard() {
     amount: '',
     description: '',
     customer_name: '',
+    customer_address: '', // New field
     sector: '',
     nature_of_business: '',
     contact_name: '',
@@ -50,6 +53,7 @@ export default function MarketingDashboard() {
     loan_balance: '',
     documentation_type: '',
     funding_status: '',
+    tenure: '2', // New field with default value
     purpose: ''
   });
   
@@ -65,6 +69,7 @@ export default function MarketingDashboard() {
   const sectorOptions = ['Agriculture', 'Manufacturing', 'Services', 'Technology', 'Retail', 'Construction', 'Other'];
   const documentationTypes = ['Formal', 'Informal', 'Semi-Formal', 'None'];
   const fundingStatusOptions = ['Pending', 'Funded', 'Rejected', 'On Hold'];
+  const tenureOptions = [2, 3, 4, 5, 6, 7]; // New options for tenure
 
   const [userRole, setUserRole] = useState<string | null>(null);
 
@@ -146,6 +151,7 @@ export default function MarketingDashboard() {
           amount: parseFloat(newTransaction.amount),
           description: newTransaction.description,
           customer_name: newTransaction.customer_name,
+          customer_address: newTransaction.customer_address, // New field
           sector: newTransaction.sector,
           nature_of_business: newTransaction.nature_of_business,
           contact_name: newTransaction.contact_name,
@@ -156,6 +162,7 @@ export default function MarketingDashboard() {
           loan_balance: parseFloat(newTransaction.loan_balance),
           documentation_type: newTransaction.documentation_type,
           funding_status: newTransaction.funding_status,
+          tenure: parseInt(newTransaction.tenure), // New field
           purpose: newTransaction.purpose,
           uploaded_files: uploadedFilePaths,
           status: 'pending',
@@ -171,6 +178,7 @@ export default function MarketingDashboard() {
         amount: '',
         description: '',
         customer_name: '',
+        customer_address: '', // New field
         sector: '',
         nature_of_business: '',
         contact_name: '',
@@ -181,6 +189,7 @@ export default function MarketingDashboard() {
         loan_balance: '',
         documentation_type: '',
         funding_status: '',
+        tenure: '2', // New field reset
         purpose: ''
       });
       setFiles([]);
@@ -281,6 +290,19 @@ export default function MarketingDashboard() {
               />
             </div>
             
+            {/* New Customer Address field */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Customer Address</label>
+              <input
+                type="text"
+                required
+                value={newTransaction.customer_address}
+                onChange={(e) => setNewTransaction(prev => ({ ...prev, customer_address: e.target.value }))}
+                className="mt-1 focus:ring-red-500 focus:border-red-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md py-3"
+                placeholder="Enter customer address"
+              />
+            </div>
+            
             {/* Business Information */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Sector</label>
@@ -357,7 +379,7 @@ export default function MarketingDashboard() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Cedi Balance</label>
               <div className="mt-1 relative rounded-md shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-500 sm:text-sm">$</span>
+                  <span className="text-gray-500 sm:text-sm">₵</span>
                 </div>
                 <input
                   type="number"
@@ -434,6 +456,21 @@ export default function MarketingDashboard() {
                 <option value="">Select funding status</option>
                 {fundingStatusOptions.map((status) => (
                   <option key={status} value={status}>{status}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* New Tenure field */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tenure (Days)</label>
+              <select
+                required
+                value={newTransaction.tenure}
+                onChange={(e) => setNewTransaction(prev => ({ ...prev, tenure: e.target.value }))}
+                className="mt-1 focus:ring-red-500 focus:border-red-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md py-3"
+              >
+                {tenureOptions.map((days) => (
+                  <option key={days} value={days}>{days} days</option>
                 ))}
               </select>
             </div>
@@ -568,11 +605,19 @@ export default function MarketingDashboard() {
                       <div className="text-sm font-medium text-gray-900">{transaction.customer_name}</div>
                       <div className="text-sm text-gray-500">{transaction.contact_name}</div>
                       <div className="text-sm text-gray-500">{transaction.contact_number}</div>
+                      {/* Display customer address if available */}
+                      {transaction.customer_address && (
+                        <div className="text-sm text-gray-500">{transaction.customer_address}</div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">Amount: ${formatNumber(transaction.amount)}</div>
                       <div className="text-sm text-gray-500">Purpose: {transaction.purpose}</div>
                       <div className="text-sm text-gray-500">Sector: {transaction.sector}</div>
+                      {/* Display tenure if available */}
+                      {transaction.tenure && (
+                        <div className="text-sm text-gray-500">Tenure: {transaction.tenure} days</div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
