@@ -1,0 +1,7 @@
+﻿CustomerName,Sector,NatureofBusiness,ContactName,ContactNumber,Amount,FundingStatus,Documentation,Purpose
+BP,Transport,Transport,National Manager,02094852241,12000,Fully Funded,YES,
+Shell,Transport,Transport,Finance Manager,013424121,1200000,Fully Funded,YES,
+Unilever,FMCG,FMCG,Finance Manager,013423142,20000,Fully Funded,YES,
+Unilever,FMCG,FMCG,Finance Manager,03402456221,14000,Fully Funded,YES,
+BP,Transport,Transport,National Manager,0340245622,32000,Fully Funded,YES,
+Zara,Commerce,Commerce,Regional Manager,0234211342,12000,Fully Funded,YES,PAYMENT OF IMPORT BILLS
