@@ -4,6 +4,7 @@ import { useAuth } from '../lib/auth';
 import { FileText, ArrowRightCircle } from 'lucide-react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import JSZip from 'jszip';
 
 import { useNavigate } from 'react-router-dom';
 
@@ -99,153 +100,191 @@ export default function TreasuryDashboard() {
   }
   
 
-async function generateExcelReport() {
-  try {
-    toast.info('Preparing to generate report...');
-
-   // Prompt user for indicative rates
-    // Step 1: Prompt user for indicative rates
-const indicativeBuying = prompt('Enter INDICATIVE BUYING rate:');
-const indicativeSelling = prompt('Enter INDICATIVE SELLING rate:');
-
-if (!indicativeBuying || !indicativeSelling) {
-  toast.error('You must enter both rates.');
-  return;
-}
-
-// Step 2: Delete old Rate.csv if it exists
-await supabase
-  .storage
-  .from('excel')
-  .remove(['inputs/Rate.csv']);
-
-// Step 3: Create a new CSV file with the rate values
-const csvContentRate = `INDICATIVE BUYING,INDICATIVE SELLING\n${indicativeBuying},${indicativeSelling}`;
-const csvBlobRate = new Blob([csvContentRate], { type: 'text/csv;charset=utf-8;' });
-
-// Step 4: Upload the new CSV to Supabase
-const { error: uploadError } = await supabase
-  .storage
-  .from('excel')
-  .upload('inputs/Rate.csv', csvBlobRate, {
-    upsert: true,
-    contentType: 'text/csv'
-  });
-
-
-
-    if (uploadError) {
-      toast.error('Failed to upload updated Rate.xlsx');
-      throw uploadError;
-    }
-
-    toast.success('Indicative rates saved to Rate.xlsx');
-
-    // Step 3: Fetch approved transactions
-    toast.info('Fetching approved transactions...');
-    const today = new Date();
-    const formattedDate = today.toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
-
-    const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
-    const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
-
-    const { data: approvedTransactions, error } = await supabase
-      .from('transactions')
-      .select(`
-        id,
-        amount,
-        customer_name,
-        description,
-        created_at,
-        sector,
-        nature_of_business,
-        contact_name,
-        contact_number,
-        customer_address,
-        funding_status,
-        documentation_type,
-        purpose,
-        tenure,
-        cedi_balance
-      `)
-      .eq('status', 'approved')
-      .gte('created_at', startOfDay)
-      .lte('created_at', endOfDay);
-
-    if (error) throw error;
-
-    if (!approvedTransactions || approvedTransactions.length === 0) {
-      toast.info('No approved transactions found for today');
-      return;
-    }
-
-    // Step 4: Convert to CSV
-    const csvData = approvedTransactions.map(tx => ({
-      'CustomerName': tx.customer_name || '',
-      'Sector': tx.sector || '',
-      'NatureofBusiness': tx.nature_of_business || '',
-      'CustomerAddress': tx.customer_address || '',
-      'ContactName': tx.contact_name || '',
-      'ContactNumber': tx.contact_number || '',
-      'Amount': tx.amount?.toLocaleString() || '',
-      'CustomerBalance': tx.cedi_balance?.toLocaleString() || '',
-      'FundingStatus': tx.funding_status || '',
-      'Tenure': tx.tenure || ''
-    }));
-
-    const headers = Object.keys(csvData[0]).join(',');
-    const rows = csvData.map(row =>
-      Object.values(row).map(val =>
-        typeof val === 'string' && val.includes(',') ? `"${val}"` : val
-      ).join(',')
-    );
-    const csvContent = [headers, ...rows].join('\n');
-
-    const csvBlob = new Blob([csvContent], { type: 'text/csv' });
-
-    // Step 5: Upload CSV to Supabase
-    const { error: csvUploadError } = await supabase
-      .storage
-      .from('excel')
-      .upload(`inputs/${formattedDate}.csv`, csvBlob, {
-        upsert: true,
-        contentType: 'text/csv'
+  async function generateExcelReport() {
+    try {
+      toast.info('Preparing to generate report...');
+  
+      // Step 1: Prompt user for indicative rates
+      const indicativeBuying = prompt('Enter INDICATIVE BUYING rate:');
+      const indicativeSelling = prompt('Enter INDICATIVE SELLING rate:');
+  
+      if (!indicativeBuying || !indicativeSelling) {
+        toast.error('You must enter both rates.');
+        return;
+      }
+  
+      // Step 2: Create and upload Rate.csv to Supabase
+      const csvContentRate = `INDICATIVE BUYING,INDICATIVE SELLING\n${indicativeBuying},${indicativeSelling}`;
+      const csvBlobRate = new Blob([csvContentRate], { type: 'text/csv;charset=utf-8;' });
+  
+      const { error: uploadError } = await supabase
+        .storage
+        .from('excel')
+        .upload('inputs/Rate.csv', csvBlobRate, {
+          upsert: true,
+          contentType: 'text/csv'
+        });
+  
+      if (uploadError) {
+        toast.error('Failed to upload updated rates');
+        throw uploadError;
+      }
+  
+      toast.success('Indicative rates saved successfully');
+  
+      // Step 3: Fetch approved transactions for today
+      toast.info('Fetching approved transactions...');
+      const today = new Date();
+      const formattedDate = today.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
       });
-
-    if (csvUploadError) {
-      toast.error('Failed to upload CSV to Supabase');
-      throw csvUploadError;
+  
+      const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
+      const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
+  
+      const { data: approvedTransactions, error } = await supabase
+        .from('transactions')
+        .select(`
+          id,
+          amount,
+          customer_name,
+          description,
+          created_at,
+          sector,
+          nature_of_business,
+          contact_name,
+          contact_number,
+          customer_address,
+          funding_status,
+          documentation_type,
+          purpose,
+          tenure,
+          cedi_balance
+        `)
+        .eq('status', 'approved')
+        .gte('created_at', startOfDay)
+        .lte('created_at', endOfDay);
+  
+      if (error) throw error;
+  
+      if (!approvedTransactions || approvedTransactions.length === 0) {
+        toast.info('No approved transactions found for today');
+        return;
+      }
+  
+      // Step 4: Convert transactions to CSV
+      const csvData = approvedTransactions.map(tx => ({
+        'CustomerName': tx.customer_name || '',
+        'Sector': tx.sector || '',
+        'NatureofBusiness': tx.nature_of_business || '',
+        'CustomerAddress': tx.customer_address || '',
+        'ContactName': tx.contact_name || '',
+        'ContactNumber': tx.contact_number || '',
+        'Amount': tx.amount?.toLocaleString() || '',
+        'CustomerBalance': tx.cedi_balance?.toLocaleString() || '',
+        'FundingStatus': tx.funding_status || '',
+        'Tenure': tx.tenure || ''
+      }));
+  
+      const headers = Object.keys(csvData[0]).join(',');
+      const rows = csvData.map(row =>
+        Object.values(row).map(val =>
+          typeof val === 'string' && val.includes(',') ? `"${val}"` : val
+        ).join(',')
+      );
+      const csvContent = [headers, ...rows].join('\n');
+  
+      const csvBlob = new Blob([csvContent], { type: 'text/csv' });
+  
+      // Step 5: Upload transactions CSV to Supabase
+      const { error: csvUploadError } = await supabase
+        .storage
+        .from('excel')
+        .upload(`inputs/${formattedDate}.csv`, csvBlob, {
+          upsert: true,
+          contentType: 'text/csv'
+        });
+  
+      if (csvUploadError) {
+        toast.error('Failed to upload CSV to Supabase');
+        throw csvUploadError;
+      }
+  
+      // Step 6: Handle file downloads for local processing
+      toast.info('Preparing files for download...');
+      
+      // Define all required files
+      const requiredFiles = [
+        'Demand and Rate.xlsx',
+        'FX Demand Request Form.xlsx',
+        'FX Pipeline Demand.xlsx',
+        `${formattedDate}.csv`,
+        'Rate.csv',
+        'FX_Pipeline.xlsm',
+        'runMacro.ps1'
+      ];
+      
+      // Create a batch file for running the PowerShell script
+      const batchContent = `@echo off
+  powershell -ExecutionPolicy Bypass -File "%~dp0runMacro.ps1"
+  pause`;
+  
+      const batchBlob = new Blob([batchContent], { type: 'application/bat' });
+      
+      // Create a ZIP file containing all needed files
+      toast.info('Creating package with all required files...');
+      
+      // You'll need to add JSZip to your project dependencies
+      const zip = new JSZip();
+      
+      // Download each file from Supabase and add to zip
+      for (const fileName of requiredFiles) {
+        try {
+          const folder = fileName === 'FX_Pipeline.xlsm' || fileName === 'runMacro.ps1' 
+            ? 'macros' 
+            : 'inputs';
+            
+          const { data, error: downloadError } = await supabase
+            .storage
+            .from('excel')
+            .download(`${folder}/${fileName}`);
+            
+          if (downloadError) throw downloadError;
+          
+          zip.file(fileName, data);
+          toast.info(`Added ${fileName} to package`);
+        } catch (err) {
+          console.error(`Error downloading ${fileName}:`, err);
+          toast.error(`Failed to download ${fileName}`);
+        }
+      }
+      
+      // Add the batch file to the zip
+      zip.file('RunMacro.bat', batchBlob);
+      
+      // Generate the zip file
+      const zipContent = await zip.generateAsync({ type: 'blob' });
+      
+      // Create a download link for the ZIP file
+      const zipUrl = URL.createObjectURL(zipContent);
+      const downloadLink = document.createElement('a');
+      downloadLink.href = zipUrl;
+      downloadLink.download = `FX_Report_Package_${formattedDate}.zip`;
+      
+      // Trigger the download
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      
+      toast.success('Files package downloaded. Unzip and run RunMacro.bat to generate the Excel report.');
+      
+    } catch (err) {
+      console.error('Error in generateExcelReport:', err);
+      toast.error(`Failed to generate Excel report: ${err instanceof Error ? err.message : String(err)}`);
     }
-
-    // Step 6: Trigger backend Excel generation
-    const inputFiles = [
-      'Demand and Rate.xlsx',
-      'FX Demand Request Form.xlsx',
-      'FX Pipeline Demand.xlsx',
-      `${formattedDate}.csv`,
-      'Rate.csv'
-    ];
-
-    const res = await fetch('https://fx-pub-api.onrender.com/generate-report', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ inputFiles })
-    });
-
-    const resBlob = await res.blob();
-    const resUrl = window.URL.createObjectURL(resBlob);
-    window.open(resUrl, '_blank');
-
-    toast.success('Excel report generated successfully');
-  } catch (err) {
-    console.error(err);
-    toast.error('Failed to generate Excel report');
   }
-}
 
 
   // Format amount with thousand separators
