@@ -22,7 +22,7 @@ interface Transaction {
   documentation_type: string;
   funding_status: string;
   purpose: string;
-  tenure: number; // New field
+  tenor: number; // New field
   uploaded_files: string[];
   status: 'pending' | 'approved' | 'denied';
   created_at: string;
@@ -53,7 +53,7 @@ export default function MarketingDashboard() {
     loan_balance: '',
     documentation_type: '',
     funding_status: '',
-    tenure: '2', // New field with default value
+    tenor: '2', // New field with default value
     purpose: ''
   });
   
@@ -69,7 +69,7 @@ export default function MarketingDashboard() {
   const sectorOptions = ['Agriculture', 'Manufacturing', 'Services', 'Technology', 'Retail', 'Construction', 'Other'];
   const documentationTypes = ['Formal', 'Informal', 'Semi-Formal', 'None'];
   const fundingStatusOptions = ['Pending', 'Funded', 'Rejected', 'On Hold'];
-  const tenureOptions = [2, 3, 4, 5, 6, 7]; // New options for tenure
+  const tenorOptions = [2, 7]; // New options for tenor
 
   const [userRole, setUserRole] = useState<string | null>(null);
 
@@ -162,7 +162,7 @@ export default function MarketingDashboard() {
           loan_balance: parseFloat(newTransaction.loan_balance),
           documentation_type: newTransaction.documentation_type,
           funding_status: newTransaction.funding_status,
-          tenure: parseInt(newTransaction.tenure), // New field
+          tenor: parseInt(newTransaction.tenor), // New field
           purpose: newTransaction.purpose,
           uploaded_files: uploadedFilePaths,
           status: 'pending',
@@ -189,7 +189,7 @@ export default function MarketingDashboard() {
         loan_balance: '',
         documentation_type: '',
         funding_status: '',
-        tenure: '2', // New field reset
+        tenor: '2', // New field reset
         purpose: ''
       });
       setFiles([]);
@@ -460,16 +460,16 @@ export default function MarketingDashboard() {
               </select>
             </div>
 
-            {/* New Tenure field */}
+            {/* New tenor field */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tenure (Days)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">tenor (Days)</label>
               <select
                 required
-                value={newTransaction.tenure}
-                onChange={(e) => setNewTransaction(prev => ({ ...prev, tenure: e.target.value }))}
+                value={newTransaction.tenor}
+                onChange={(e) => setNewTransaction(prev => ({ ...prev, tenor: e.target.value }))}
                 className="mt-1 focus:ring-red-500 focus:border-red-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md py-3"
               >
-                {tenureOptions.map((days) => (
+                {tenorOptions.map((days) => (
                   <option key={days} value={days}>{days} days</option>
                 ))}
               </select>
@@ -614,9 +614,9 @@ export default function MarketingDashboard() {
                       <div className="text-sm text-gray-900">Amount: ${formatNumber(transaction.amount)}</div>
                       <div className="text-sm text-gray-500">Purpose: {transaction.purpose}</div>
                       <div className="text-sm text-gray-500">Sector: {transaction.sector}</div>
-                      {/* Display tenure if available */}
-                      {transaction.tenure && (
-                        <div className="text-sm text-gray-500">Tenure: {transaction.tenure} days</div>
+                      {/* Display tenor if available */}
+                      {transaction.tenor && (
+                        <div className="text-sm text-gray-500">tenor: {transaction.tenor} days</div>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

@@ -23,7 +23,7 @@ interface Transaction {
   documentation_type: string;
   funding_status: string;
   purpose: string;
-  tenure: string;
+  tenor: string;
   uploaded_files: string[];
   status: 'pending' | 'approved' | 'denied';
   created_at: string;
@@ -102,20 +102,19 @@ export default function TransactionDetails() {
       if (error) throw error;
       
       setTransaction(data);
-      
-      // Fetch creator user info
+      // Fetch creator user info by email
       if (data.created_by) {
-        fetchUserInfo(data.created_by, 'creator');
+        fetchUserInfoById(data.created_by, 'creator');
       }
       
       // Fetch approver user info if exists
       if (data.approved_by) {
-        fetchUserInfo(data.approved_by, 'approver');
+        fetchUserInfoById(data.approved_by, 'approver');
       }
-      
+  
       // Fetch verifier user info if exists
       if (data.verified_by) {
-        fetchUserInfo(data.verified_by, 'verifier');
+        fetchUserInfoById(data.verified_by, 'verifier');
       }
     } catch (error) {
       toast.error('Failed to fetch transaction details');
@@ -125,15 +124,21 @@ export default function TransactionDetails() {
     }
   }
 
-  async function fetchUserInfo(userId: string, userType: 'creator' | 'approver' | 'verifier') {
+  // Modified function to fetch user info by email instead of ID
+  async function fetchUserInfoById(id: string, userType: 'creator' | 'approver' | 'verifier') {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, email')
-        .eq('id', userId)
-        .single();
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error(`Failed to fetch ${userType} info by id:`, error);
+        return;
+      }
+      console.log(data);
+      
       
       if (userType === 'creator') {
         setCreator(data);
@@ -153,7 +158,7 @@ export default function TransactionDetails() {
         .from('transactions')
         .update({ 
           status,
-          approved_by: user?.id,
+          approved_by: user?.email,
           approved_at: new Date().toISOString()
         })
         .eq('id', transaction?.id);
@@ -174,7 +179,7 @@ export default function TransactionDetails() {
         .from('transactions')
         .update({ 
           documentation_verified: true,
-          verified_by: user?.id,
+          verified_by: user?.email,
           verified_at: new Date().toISOString()
         })
         .eq('id', transaction?.id);
@@ -347,7 +352,7 @@ export default function TransactionDetails() {
         {transaction.status === 'pending' && 
           transaction.documentation_verified && 
           isTradeUser && 
-          user?.id !== transaction.created_by && (
+          user?.email !== transaction.created_by && (
             <div className="flex space-x-3">
               <button
                 onClick={() => updateTransactionStatus('approved')}
@@ -449,8 +454,8 @@ export default function TransactionDetails() {
                   <p className="text-base font-semibold">${formatCurrency(transaction.loan_balance)}</p>
                 </div>
                 <div className="flex flex-col">
-                  <p className="text-sm font-medium text-gray-500">Tenure</p>
-                  <p className="text-base font-semibold">{transaction.tenure || 'N/A'}</p>
+                  <p className="text-sm font-medium text-gray-500">tenor</p>
+                  <p className="text-base font-semibold">{transaction.tenor || 'N/A'}</p>
                 </div>
               </div>
             </div>
@@ -485,7 +490,7 @@ export default function TransactionDetails() {
                 <div className="space-y-4">
                   <div className="flex flex-col">
                     <p className="text-sm font-medium text-gray-500">Created By</p>
-                    <p className="text-base font-semibold">{creator?.full_name || 'N/A'}</p>
+                    <p className="text-base font-semibold">{creator?.full_name || transaction.created_by || 'N/A'}</p>
                   </div>
                   <div className="flex flex-col">
                     <p className="text-sm font-medium text-gray-500">Created At</p>
@@ -495,7 +500,7 @@ export default function TransactionDetails() {
                     <>
                       <div className="flex flex-col">
                         <p className="text-sm font-medium text-gray-500">Verified By</p>
-                        <p className="text-base font-semibold">{verifier?.email || 'N/A'}</p>
+                        <p className="text-base font-semibold">{verifier?.full_name || transaction.verified_by || 'N/A'}</p>
                       </div>
                       <div className="flex flex-col">
                         <p className="text-sm font-medium text-gray-500">Verified At</p>
@@ -507,7 +512,7 @@ export default function TransactionDetails() {
                     <>
                       <div className="flex flex-col">
                         <p className="text-sm font-medium text-gray-500">Approved/Denied By</p>
-                        <p className="text-base font-semibold">{approver?.full_name || 'N/A'}</p>
+                        <p className="text-base font-semibold">{approver?.full_name || transaction.approved_by || 'N/A'}</p>
                       </div>
                       <div className="flex flex-col">
                         <p className="text-sm font-medium text-gray-500">Approved/Denied At</p>
@@ -575,7 +580,7 @@ export default function TransactionDetails() {
                     <FileCheck className="h-6 w-6 text-blue-600 mr-3" />
                     <p className="text-base">
                       Documentation was <span className="font-bold">verified</span>
-                      {verifier && ` by ${verifier.email}`}
+                      {transaction.verified_by && ` by ${verifier?.full_name || transaction.verified_by}`}
                       {transaction.verified_at && ` on ${new Date(transaction.verified_at).toLocaleDateString()}`}
                     </p>
                   </div>
@@ -591,7 +596,7 @@ export default function TransactionDetails() {
                     )}
                     <p className="text-base">
                       This transaction was <span className="font-bold">{transaction.status}</span>
-                      {approver && ` by ${approver.full_name}`}
+                      {transaction.approved_by && ` by ${approver?.full_name || transaction.approved_by}`}
                       {transaction.approved_at && ` on ${new Date(transaction.approved_at).toLocaleDateString()}`}
                     </p>
                   </div>
