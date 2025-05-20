@@ -158,7 +158,7 @@ export default function TransactionDetails() {
         .from('transactions')
         .update({ 
           status,
-          approved_by: user?.email,
+          approved_by: user?.id,
           approved_at: new Date().toISOString()
         })
         .eq('id', transaction?.id);
@@ -179,7 +179,7 @@ export default function TransactionDetails() {
         .from('transactions')
         .update({ 
           documentation_verified: true,
-          verified_by: user?.email,
+          verified_by: user?.id,
           verified_at: new Date().toISOString()
         })
         .eq('id', transaction?.id);
