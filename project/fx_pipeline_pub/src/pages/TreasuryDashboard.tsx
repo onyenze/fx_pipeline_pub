@@ -160,7 +160,7 @@ export default function TreasuryDashboard() {
           funding_status,
           documentation_type,
           purpose,
-          tenure,
+          tenor,
           cedi_balance
         `)
         .eq('status', 'approved')
@@ -185,7 +185,7 @@ export default function TreasuryDashboard() {
         'Amount': tx.amount?.toLocaleString() || '',
         'CustomerBalance': tx.cedi_balance?.toLocaleString() || '',
         'FundingStatus': tx.funding_status || '',
-        'Tenure': tx.tenure || ''
+        'Tenor': tx.tenor || ''
       }));
   
       const headers = Object.keys(csvData[0]).join(',');
