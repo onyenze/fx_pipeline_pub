@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase,supabaseAnonKey } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { PlusCircle, Upload, ArrowRightCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -145,7 +145,7 @@ export default function MarketingDashboard() {
       }
       
       // Then create transaction record
-      const { error } = await supabase
+      const { data:insertSuccess,error } = await supabase
         .from('transactions')
         .insert([{
           amount: parseFloat(newTransaction.amount),
@@ -173,6 +173,21 @@ export default function MarketingDashboard() {
       if (error) throw error;
 
       toast.success('Transaction created successfully');
+
+      if (insertSuccess) {
+  // Call the edge function
+  await fetch('https://lpywaflkmzwuxzpqaxgg.functions.supabase.co/email-sender', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${supabaseAnonKey}`
+    },
+    body: JSON.stringify({
+      event: 'INSERT',
+      record: insertSuccess[0]
+    })
+  })
+}
       // Reset form
       setNewTransaction({
         amount: '',
@@ -462,7 +477,7 @@ export default function MarketingDashboard() {
 
             {/* New tenor field */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">tenor (Days)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tenor (Days)</label>
               <select
                 required
                 value={newTransaction.tenor}

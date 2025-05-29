@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase ,supabaseAnonKey} from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { FileText, ArrowLeft, CheckCircle, XCircle, Download, Eye, FileCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -154,7 +154,7 @@ export default function TransactionDetails() {
 
   async function updateTransactionStatus(status: 'approved' | 'denied') {
     try {
-      const { error } = await supabase
+      const { data:insertSuccess,error } = await supabase
         .from('transactions')
         .update({ 
           status,
@@ -166,6 +166,20 @@ export default function TransactionDetails() {
       if (error) throw error;
 
       toast.success(`Transaction ${status} successfully`);
+      if (insertSuccess) {
+        // Call the edge function
+        await fetch('https://lpywaflkmzwuxzpqaxgg.functions.supabase.co/email-sender', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseAnonKey}`
+          },
+          body: JSON.stringify({
+            event: 'UPDATE',
+            record: insertSuccess[0]
+          })
+        })
+      }
       fetchTransactionDetails(transaction?.id as string);
     } catch (error) {
       toast.error(`Failed to ${status} transaction`);
@@ -175,7 +189,7 @@ export default function TransactionDetails() {
   
   async function verifyDocumentation() {
     try {
-      const { error } = await supabase
+      const { data:insertSuccess,error } = await supabase
         .from('transactions')
         .update({ 
           documentation_verified: true,
@@ -187,6 +201,20 @@ export default function TransactionDetails() {
       if (error) throw error;
 
       toast.success('Documentation verified successfully');
+      if (insertSuccess) {
+        // Call the edge function
+        await fetch('https://lpywaflkmzwuxzpqaxgg.functions.supabase.co/email-sender', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseAnonKey}`
+          },
+          body: JSON.stringify({
+            event: 'UPDATE',
+            record: insertSuccess[0]
+          })
+        })
+      }
       fetchTransactionDetails(transaction?.id as string);
     } catch (error) {
       toast.error('Failed to verify documentation');
