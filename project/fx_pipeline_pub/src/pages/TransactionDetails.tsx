@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase ,supabaseAnonKey} from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { FileText, ArrowLeft, CheckCircle, XCircle, Download, Eye, FileCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -154,7 +154,7 @@ export default function TransactionDetails() {
 
   async function updateTransactionStatus(status: 'approved' | 'denied') {
     try {
-      const { data:insertSuccess,error } = await supabase
+      const { error } = await supabase
         .from('transactions')
         .update({ 
           status,
@@ -166,33 +166,6 @@ export default function TransactionDetails() {
       if (error) throw error;
 
       toast.success(`Transaction ${status} successfully`);
-      try {
-          const response = await fetch('https://lpywaflkmzwuxzpqaxgg.functions.supabase.co/email-sender', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${supabaseAnonKey}`,
-            },
-            body: JSON.stringify({
-              event: 'INSERT',
-              record: insertSuccess?.[0],
-              old_record:insertSuccess?.[1]  // send the inserted record if needed
-            }),
-          });
-
-          const responseBody = await response.json(); // or response.text() if it's plain text
-
-          if (!response.ok) {
-            console.error('Edge function call failed:', response.status, responseBody);
-            toast.error('Edge function failed');
-          } else {
-            console.log('Edge function ran successfully:', responseBody);
-            toast.success('Email notification sent');
-          }
-        } catch (err) {
-          console.error('Error calling edge function:', err);
-          toast.error('Error sending email notification');
-        }
       fetchTransactionDetails(transaction?.id as string);
     } catch (error) {
       toast.error(`Failed to ${status} transaction`);
@@ -202,7 +175,7 @@ export default function TransactionDetails() {
   
   async function verifyDocumentation() {
     try {
-      const { data:insertSuccess,error } = await supabase
+      const { error } = await supabase
         .from('transactions')
         .update({ 
           documentation_verified: true,
@@ -214,33 +187,6 @@ export default function TransactionDetails() {
       if (error) throw error;
 
       toast.success('Documentation verified successfully');
-      try {
-              const response = await fetch('https://lpywaflkmzwuxzpqaxgg.functions.supabase.co/email-sender', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${supabaseAnonKey}`,
-                },
-                body: JSON.stringify({
-                  event: 'INSERT',
-                  record: insertSuccess?.[0],
-                  old_record:insertSuccess?.[1]  // send the inserted record if needed
-                }),
-              });
-
-              const responseBody = await response.json(); // or response.text() if it's plain text
-
-              if (!response.ok) {
-                console.error('Edge function call failed:', response.status, responseBody);
-                toast.error('Edge function failed');
-              } else {
-                console.log('Edge function ran successfully:', responseBody);
-                toast.success('Email notification sent');
-              }
-            } catch (err) {
-              console.error('Error calling edge function:', err);
-              toast.error('Error sending email notification');
-            }
       fetchTransactionDetails(transaction?.id as string);
     } catch (error) {
       toast.error('Failed to verify documentation');

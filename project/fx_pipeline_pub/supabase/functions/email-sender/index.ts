@@ -20,6 +20,7 @@ serve(async (req) => {
   } else if (eventType === 'UPDATE') {
     const statusChanged = oldRecord.status !== record.status;
     const docVerifiedChanged = !oldRecord.documentation_verified && record.documentation_verified;
+    
 
     if (statusChanged) {
       subject = `Transaction Status Updated`;
@@ -30,7 +31,9 @@ serve(async (req) => {
     } else {
       return new Response('No significant update, skipping email.', { status: 200 });
     }
-  } else {
+  } else if (eventType === 'TEST') {
+  return new Response("Test event received", { status: 200 });
+} else {
     return new Response('Unhandled event type', { status: 400 });
   }
 

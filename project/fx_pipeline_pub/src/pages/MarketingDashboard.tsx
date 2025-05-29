@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase,supabaseAnonKey } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { PlusCircle, Upload, ArrowRightCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -145,7 +145,7 @@ export default function MarketingDashboard() {
       }
       
       // Then create transaction record
-      const { data:insertSuccess,error } = await supabase
+      const { error } = await supabase
         .from('transactions')
         .insert([{
           amount: parseFloat(newTransaction.amount),
@@ -173,36 +173,6 @@ export default function MarketingDashboard() {
       if (error) throw error;
 
       toast.success('Transaction created successfully');
-
-      
-  try {
-  const response = await fetch('https://lpywaflkmzwuxzpqaxgg.functions.supabase.co/email-sender', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${supabaseAnonKey}`,
-    },
-    body: JSON.stringify({
-      event: 'INSERT',
-      record: insertSuccess?.[0],
-      old_record:insertSuccess?.[1]  // send the inserted record if needed
-    }),
-  });
-
-  const responseBody = await response.json(); // or response.text() if it's plain text
-
-  if (!response.ok) {
-    console.error('Edge function call failed:', response.status, responseBody);
-    toast.error('Edge function failed');
-  } else {
-    console.log('Edge function ran successfully:', responseBody);
-    toast.success('Email notification sent');
-  }
-} catch (err) {
-  console.error('Error calling edge function:', err);
-  toast.error('Error sending email notification');
-}
-
       // Reset form
       setNewTransaction({
         amount: '',
