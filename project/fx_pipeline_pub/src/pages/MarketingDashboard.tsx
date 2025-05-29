@@ -174,20 +174,35 @@ export default function MarketingDashboard() {
 
       toast.success('Transaction created successfully');
 
-      if (insertSuccess) {
-  // Call the edge function
-  await fetch('https://lpywaflkmzwuxzpqaxgg.functions.supabase.co/email-sender', {
+      
+  try {
+  const response = await fetch('https://lpywaflkmzwuxzpqaxgg.functions.supabase.co/email-sender', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${supabaseAnonKey}`
+      'Authorization': `Bearer ${supabaseAnonKey}`,
     },
     body: JSON.stringify({
       event: 'INSERT',
-      record: insertSuccess[0]
-    })
-  })
+      record: insertSuccess?.[0],
+      old_record:insertSuccess?.[1]  // send the inserted record if needed
+    }),
+  });
+
+  const responseBody = await response.json(); // or response.text() if it's plain text
+
+  if (!response.ok) {
+    console.error('Edge function call failed:', response.status, responseBody);
+    toast.error('Edge function failed');
+  } else {
+    console.log('Edge function ran successfully:', responseBody);
+    toast.success('Email notification sent');
+  }
+} catch (err) {
+  console.error('Error calling edge function:', err);
+  toast.error('Error sending email notification');
 }
+
       // Reset form
       setNewTransaction({
         amount: '',
