@@ -8,7 +8,7 @@ import './index.css';
 import { BrowserRouter } from 'react-router-dom';
 
 // Configure axios defaults
-axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'https://fx-backend-service.onrender.com/api/';
+axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'https://fx-backend-service.onrender.com/';
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 
 // Add request interceptor

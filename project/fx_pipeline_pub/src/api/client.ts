@@ -3,7 +3,7 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-  baseURL: 'http://localhost:3500/api', // Your backend URL
+  baseURL: 'https://fx-backend-service.onrender.com/api', // Your backend URL
   withCredentials: true, // Important for cookies/sessions
   headers: {
     'Content-Type': 'application/json',
