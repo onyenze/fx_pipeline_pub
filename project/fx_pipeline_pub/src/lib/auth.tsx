@@ -1,13 +1,27 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from './supabase';
-import type { User } from '@supabase/supabase-js';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import apiClient from '../api/client';
+
+interface User {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+}
 
 interface AuthContextType {
   user: User | null;
-  profile: any | null;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
-  signOut: () => Promise<void>;
+  token: string | null;
+  login: (email: string, password: string) => Promise<void>;
+  register: (userData: {
+    email: string;
+    password: string;
+    first_name: string;
+    last_name: string;
+  }) => Promise<void>;
+  logout: () => void;
   loading: boolean;
 }
 
@@ -15,82 +29,117 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<any | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      }
+    const storedToken = localStorage.getItem('token');
+    if (storedToken) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+      fetchCurrentUser(storedToken);
+    } else {
       setLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
-        setProfile(null);
-      }
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    }
   }, []);
 
-  async function fetchProfile(userId: string) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-    setProfile(data);
+  async function fetchCurrentUser(token: string) {
+  try {
+    const response = await apiClient.get('/user');
+    const { data } = response.data; // Adjust according to your actual response
+    
+    if (!data?.user) {
+      throw new Error('User data not found in response');
+    }
+    
+    setUser(data.user);
+    setToken(token);
+  } catch (error) {
+    console.error('Failed to fetch current user:', error);
+    localStorage.removeItem('token');
+    delete apiClient.defaults.headers.common['Authorization'];
+  } finally {
+    setLoading(false);
   }
+}
 
-  async function signIn(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-  }
-
-  async function signUp(email: string, password: string) {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/login`
-      }
+  async function login(email: string, password: string) {
+  setLoading(true);
+  try {
+    const response = await apiClient.post('/users/signin', { 
+      email, 
+      password 
     });
-    if (error) throw error;
 
-    // Create a profile for the new user with a default role
-    if (data.user) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert([
-          {
-            id: data.user.id,
-            role: 'marketing', // Default role
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }
-        ]);
-      
-      if (profileError) {
-        console.error('Error creating user profile:', profileError);
-        throw profileError;
-      }
+    // Destructure according to your backend response
+    const { data } = response.data; // Extract the data object
+    const { user, token } = data; // Destructure user and token from data
+
+    if (!user || !token) {
+      throw new Error('Invalid response structure from server');
+    }
+
+    if (!user.role) {
+      throw new Error('User role not found in response');
+    }
+
+    localStorage.setItem('token', token);
+    apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    
+    setUser(user);
+    setToken(token);
+    
+    // Role-based navigation
+    switch(user.role.toLowerCase()) {
+      case 'marketing': 
+        navigate('/marketing'); 
+        break;
+      case 'trade': 
+        navigate('/trade'); 
+        break;
+      case 'treasury': 
+        navigate('/treasury'); 
+        break;
+      case 'admin': 
+        navigate('/admin'); 
+        break;
+      default: 
+        navigate('/login');
+        throw new Error(`Unknown role: ${user.role}`);
+    }
+  } catch (error) {
+    console.error('Login error:', error);
+    throw error;
+  } finally {
+    setLoading(false);
+  }
+}
+
+  async function register(userData: {
+    email: string;
+    password: string;
+    first_name: string;
+    last_name: string;
+  }) {
+    setLoading(true);
+    try {
+      await apiClient.post('/users', userData);
+      navigate('/login');
+    } finally {
+      setLoading(false);
     }
   }
 
-  async function signOut() {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+  function logout() {
+    localStorage.removeItem('token');
+    delete axios.defaults.headers.common['Authorization'];
+    setUser(null);
+    setToken(null);
+    navigate('/login');
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, signIn, signUp, signOut, loading }}>
+    <AuthContext.Provider value={{ user, token, login, register, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

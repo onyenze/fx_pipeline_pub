@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { PlusCircle, Upload, ArrowRightCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import apiClient from '../api/client';
 
 interface Transaction {
   id: string;
   amount: number;
   description: string | null;
   customer_name: string;
-  customer_address: string; // New field
+  customer_address: string;
   sector: string;
   nature_of_business: string;
   contact_name: string;
@@ -22,7 +22,7 @@ interface Transaction {
   documentation_type: string;
   funding_status: string;
   purpose: string;
-  tenor: number; // New field
+  tenor: number;
   uploaded_files: string[];
   status: 'pending' | 'approved' | 'denied';
   created_at: string;
@@ -31,8 +31,9 @@ interface Transaction {
   approved_at: string | null;
 }
 
+
 export default function MarketingDashboard() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const navigate = useNavigate();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,7 +43,7 @@ export default function MarketingDashboard() {
     amount: '',
     description: '',
     customer_name: '',
-    customer_address: '', // New field
+    customer_address: '',
     sector: '',
     nature_of_business: '',
     contact_name: '',
@@ -53,7 +54,7 @@ export default function MarketingDashboard() {
     loan_balance: '',
     documentation_type: '',
     funding_status: '',
-    tenor: '2', // New field with default value
+    tenor: '2',
     purpose: ''
   });
   
@@ -75,110 +76,64 @@ export default function MarketingDashboard() {
 
   useEffect(() => {
     fetchTransactions();
-    if (user?.id) {
-      fetchUserRole();
-    }
-  }, [fetchUserRole, user?.id]);
-  
-  async function fetchTransactions() {
-    try {
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .order('created_at', { ascending: false });
-  
-      if (error) throw error;
-      setTransactions(data || []);
-    } catch (error) {
-      toast.error('Failed to fetch transactions');
-      console.error('Error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-  
-  async function fetchUserRole() {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user?.id)
-        .single();
-        
-      if (error) throw error;
-      if (data) setUserRole(data.role);
-    } catch (error) {
-      console.error('Error fetching user role:', error);
-    }
-  }
+  }, []);
 
-  async function uploadFiles() {
-    const uploadedFilePaths = [];
+  async function fetchTransactions() {
+  try {
+    const response = await apiClient.get('/transactions');
     
-    for (const file of files) {
-      const filePath = `${Date.now()}_${file.name}`;
-      
-      const { error: uploadError } = await supabase
-        .storage
-        .from('documents')
-        .upload(filePath, file);
-        
-      if (uploadError) {
-        throw uploadError;
-      }
-      
-      uploadedFilePaths.push(filePath);
+    // Handle different response structures
+    let transactionsData = [];
+    
+    if (Array.isArray(response.data)) {
+      transactionsData = response.data;
+    } else if (Array.isArray(response.data.data)) {
+      transactionsData = response.data.data;
+    } else if (response.data.transactions) {
+      transactionsData = response.data.transactions;
     }
     
-    return uploadedFilePaths;
+    setTransactions(transactionsData);
+  } catch (error) {
+    console.error('Error fetching transactions:', error);
+    toast.error('Failed to load transactions');
+    setTransactions([]); // Set to empty array on error
+  } finally {
+    setIsLoading(false);
   }
+}
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setIsSubmitting(true);
     
     try {
-      // First upload files if any
-      let uploadedFilePaths: string[] = [];
-      if (files.length > 0) {
-        uploadedFilePaths = await uploadFiles();
-      }
+      const formData = new FormData();
       
-      // Then create transaction record
-      const { error } = await supabase
-        .from('transactions')
-        .insert([{
-          amount: parseFloat(newTransaction.amount),
-          description: newTransaction.description,
-          customer_name: newTransaction.customer_name,
-          customer_address: newTransaction.customer_address, // New field
-          sector: newTransaction.sector,
-          nature_of_business: newTransaction.nature_of_business,
-          contact_name: newTransaction.contact_name,
-          contact_number: newTransaction.contact_number,
-          amount_requested: parseFloat(newTransaction.amount_requested),
-          cedi_balance: parseFloat(newTransaction.cedi_balance),
-          loan_limit: parseFloat(newTransaction.loan_limit),
-          loan_balance: parseFloat(newTransaction.loan_balance),
-          documentation_type: newTransaction.documentation_type,
-          funding_status: newTransaction.funding_status,
-          tenor: parseInt(newTransaction.tenor), // New field
-          purpose: newTransaction.purpose,
-          uploaded_files: uploadedFilePaths,
-          status: 'pending',
-          created_by: user?.id,
-          created_at: new Date().toISOString(),
-        }]);
+      // Append all transaction data
+      Object.entries(newTransaction).forEach(([key, value]) => {
+        formData.append(key, value);
+      });
+      
+      // Append files
+      files.forEach(file => {
+        formData.append('uploaded_files', file);
+      });
 
-      if (error) throw error;
+      const response = await apiClient.post('/transactions', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
 
       toast.success('Transaction created successfully');
+      
       // Reset form
       setNewTransaction({
         amount: '',
         description: '',
         customer_name: '',
-        customer_address: '', // New field
+        customer_address: '',
         sector: '',
         nature_of_business: '',
         contact_name: '',
@@ -189,7 +144,7 @@ export default function MarketingDashboard() {
         loan_balance: '',
         documentation_type: '',
         funding_status: '',
-        tenor: '2', // New field reset
+        tenor: '2',
         purpose: ''
       });
       setFiles([]);
@@ -213,6 +168,7 @@ export default function MarketingDashboard() {
     setFiles(prevFiles => prevFiles.filter((_, i) => i !== index));
   }
 
+
   // Format number with commas for thousands
   const formatNumber = (value: number | string) => {
     if (!value) return "0.00";
@@ -233,7 +189,7 @@ export default function MarketingDashboard() {
         
         <div className="flex items-center">
           <img 
-            src="https://lpywaflkmzwuxzpqaxgg.supabase.co/storage/v1/object/sign/documents/logo.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5XzdkYjlmN2VlLWE2NGUtNDE3Ny04Y2U0LTY3YmFjZDU5MmYwZCJ9.eyJ1cmwiOiJkb2N1bWVudHMvbG9nby5wbmciLCJpYXQiOjE3NDY2MzI4MjgsImV4cCI6MTgzMzAzMjgyOH0.A4lhanGiT9JBdaWZSUYiCO7-Q7QJJQGzrC3NDYdEOlY" 
+            src="https://lpywaflkmzwuxzpqaxgg.supabase.co/storage/v1/object/sign/documents/logo.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hMGZmNzc1Yy1iZjY5LTRjNDYtOWYyMy04MjlkZGJhYzIyZDQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJkb2N1bWVudHMvbG9nby5wbmciLCJpYXQiOjE3NTAwNjc2NDMsImV4cCI6MTc5MzI2NzY0M30.8vS6uWpEToikOsW6L9CMJa2SHqDvg7TL36S7FeT91SA" 
             alt="Company Logo" 
             className="h-12 mr-4"
           />
@@ -646,7 +602,7 @@ export default function MarketingDashboard() {
       <div className="mt-12 pt-4 border-t border-red-200 flex items-center justify-between">
         <div className="flex items-center">
           <img 
-            src="https://lpywaflkmzwuxzpqaxgg.supabase.co/storage/v1/object/sign/documents/logo.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5XzdkYjlmN2VlLWE2NGUtNDE3Ny04Y2U0LTY3YmFjZDU5MmYwZCJ9.eyJ1cmwiOiJkb2N1bWVudHMvbG9nby5wbmciLCJpYXQiOjE3NDY2MzI4MjgsImV4cCI6MTgzMzAzMjgyOH0.A4lhanGiT9JBdaWZSUYiCO7-Q7QJJQGzrC3NDYdEOlY" 
+            src="https://lpywaflkmzwuxzpqaxgg.supabase.co/storage/v1/object/sign/documents/logo.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hMGZmNzc1Yy1iZjY5LTRjNDYtOWYyMy04MjlkZGJhYzIyZDQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJkb2N1bWVudHMvbG9nby5wbmciLCJpYXQiOjE3NTAwNjc2NDMsImV4cCI6MTc5MzI2NzY0M30.8vS6uWpEToikOsW6L9CMJa2SHqDvg7TL36S7FeT91SA" 
             alt="Company Logo" 
             className="h-8 mr-3" 
           />

@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
-import { FileText, ArrowLeft, CheckCircle, XCircle, Download, Eye, FileCheck } from 'lucide-react';
+import apiClient from '../api/client';
 import toast from 'react-hot-toast';
-import DocumentPreview from '../pages/documentPreview';
+import { FileText, ArrowLeft, CheckCircle, XCircle, Download, Eye, FileCheck } from 'lucide-react';
 
 interface Transaction {
   id: string;
@@ -23,7 +22,7 @@ interface Transaction {
   documentation_type: string;
   funding_status: string;
   purpose: string;
-  tenor: string;
+  tenor: number;
   uploaded_files: string[];
   status: 'pending' | 'approved' | 'denied';
   created_at: string;
@@ -31,7 +30,6 @@ interface Transaction {
   reviewed_by: string | null;
   approved_by: string | null;
   approved_at: string | null;
-  // New field for documentation verification
   documentation_verified: boolean;
   verified_by: string | null;
   verified_at: string | null;
@@ -39,9 +37,37 @@ interface Transaction {
 
 interface User {
   id: string;
-  full_name?: string;
-  email?: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: string;
 }
+
+// Add DocumentPreview component (you'll need to create this or import it)
+interface DocumentPreviewProps {
+  filePath: string;
+  onClose: () => void;
+}
+
+const DocumentPreview: React.FC<DocumentPreviewProps> = ({ filePath, onClose }) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-4xl max-h-[80vh] overflow-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Document Preview</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <XCircle className="h-6 w-6" />
+          </button>
+        </div>
+        <iframe
+          src={filePath}
+          className="w-full h-96 border rounded"
+          title="Document Preview"
+        />
+      </div>
+    </div>
+  );
+};
 
 export default function TransactionDetails() {
   const { user } = useAuth();
@@ -52,21 +78,20 @@ export default function TransactionDetails() {
   const [creator, setCreator] = useState<User | null>(null);
   const [approver, setApprover] = useState<User | null>(null);
   const [verifier, setVerifier] = useState<User | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
   
-  // State for document preview
+  // Add missing state variables
   const [previewFile, setPreviewFile] = useState<string | null>(null);
+  
+  // Add role checks
+  const isTreasuryUser = user?.role === 'treasury' || user?.role === 'admin';
+  const isTradeUser = user?.role === 'trade' || user?.role === 'admin';
   
   useEffect(() => {
     if (id) {
       fetchTransactionDetails(id);
     }
-    if (user?.id) {
-      fetchCurrentUserRole();
-    }
-  }, [id, user?.id]);
-  
-  // Format number with commas for thousands and 2 decimal places
+  }, [id]);
+
   const formatCurrency = (value: number | null | undefined): string => {
     if (value === null || value === undefined) return '0.00';
     return value.toLocaleString('en-US', {
@@ -74,47 +99,28 @@ export default function TransactionDetails() {
       maximumFractionDigits: 2
     });
   };
-  
-  async function fetchCurrentUserRole() {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user?.id)
-        .single();
-        
-      if (error) throw error;
-      if (data) setUserRole(data.role);
-    } catch (error) {
-      console.error('Error fetching user role:', error);
-    }
-  }
 
   async function fetchTransactionDetails(transactionId: string) {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('id', transactionId)
-        .single();
-
-      if (error) throw error;
+      const response = await apiClient.get(`/transactions/${transactionId}`);
+      const transactionData = response.data.data || response.data;
       
-      setTransaction(data);
-      // Fetch creator user info by email
-      if (data.created_by) {
-        fetchUserInfoById(data.created_by, 'creator');
+      setTransaction(transactionData);
+      
+      // Fetch creator info
+      if (transactionData.created_by) {
+        fetchUserInfo(transactionData.created_by, setCreator);
       }
       
-      // Fetch approver user info if exists
-      if (data.approved_by) {
-        fetchUserInfoById(data.approved_by, 'approver');
+      // Fetch approver info if exists
+      if (transactionData.approved_by) {
+        fetchUserInfo(transactionData.approved_by, setApprover);
       }
   
-      // Fetch verifier user info if exists
-      if (data.verified_by) {
-        fetchUserInfoById(data.verified_by, 'verifier');
+      // Fetch verifier info if exists
+      if (transactionData.verified_by) {
+        fetchUserInfo(transactionData.verified_by, setVerifier);
       }
     } catch (error) {
       toast.error('Failed to fetch transaction details');
@@ -124,49 +130,29 @@ export default function TransactionDetails() {
     }
   }
 
-  // Modified function to fetch user info by email instead of ID
-  async function fetchUserInfoById(id: string, userType: 'creator' | 'approver' | 'verifier') {
+  async function fetchUserInfo(userId: string, setUser: React.Dispatch<React.SetStateAction<User | null>>) {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
-
-      if (error) {
-        console.error(`Failed to fetch ${userType} info by id:`, error);
-        return;
-      }
-      console.log(data);
-      
-      
-      if (userType === 'creator') {
-        setCreator(data);
-      } else if (userType === 'approver') {
-        setApprover(data);
-      } else if (userType === 'verifier') {
-        setVerifier(data);
-      }
+      const response = await apiClient.get(`/users/${userId}`);
+      setUser(response.data.data || response.data);
     } catch (error) {
-      console.error(`Failed to fetch ${userType} info:`, error);
+      console.error('Failed to fetch user info:', error);
     }
   }
 
   async function updateTransactionStatus(status: 'approved' | 'denied') {
-    try {
-      const { error } = await supabase
-        .from('transactions')
-        .update({ 
-          status,
-          approved_by: user?.id,
-          approved_at: new Date().toISOString()
-        })
-        .eq('id', transaction?.id);
+    if (!transaction?.id) {
+      toast.error('Transaction ID is missing');
+      return;
+    }
 
-      if (error) throw error;
+    try {
+      await apiClient.patch(`/transactions/${transaction.id}/status`, {
+        status,
+        reviewed_by: user?.id
+      });
 
       toast.success(`Transaction ${status} successfully`);
-      fetchTransactionDetails(transaction?.id as string);
+      fetchTransactionDetails(transaction.id);
     } catch (error) {
       toast.error(`Failed to ${status} transaction`);
       console.error('Error:', error);
@@ -174,116 +160,63 @@ export default function TransactionDetails() {
   }
   
   async function verifyDocumentation() {
-    try {
-      const { error } = await supabase
-        .from('transactions')
-        .update({ 
-          documentation_verified: true,
-          verified_by: user?.id,
-          verified_at: new Date().toISOString()
-        })
-        .eq('id', transaction?.id);
+    if (!transaction?.id) {
+      toast.error('Transaction ID is missing');
+      return;
+    }
 
-      if (error) throw error;
+    try {
+      await apiClient.patch(`/transactions/${transaction.id}/verify`, {
+        verified_by: user?.id
+      });
 
       toast.success('Documentation verified successfully');
-      fetchTransactionDetails(transaction?.id as string);
+      fetchTransactionDetails(transaction.id);
     } catch (error) {
       toast.error('Failed to verify documentation');
       console.error('Error:', error);
     }
   }
 
-  async function downloadFile(filePath: string) {
-    const bucketName = 'documents';
-    const cleanFilePath = filePath.startsWith('/') ? filePath.slice(1) : filePath;
-    console.log(cleanFilePath);
-  
-    try {
-      // Step 1: Detect if bucket is public or private
-      const { data: bucket, error: bucketError } = await supabase.storage.getBucket(bucketName);
-      console.log(bucket);
-      
-      if (bucketError || !bucket) {
-        toast.error('Bucket not found or could not be retrieved');
-        return;
-      }
-  
-      const isPublic = bucket.public;
-      console.log(`Bucket visibility: ${isPublic ? 'Public' : 'Private'}`);
-  
-      // Step 2: Handle public buckets
-      if (isPublic) {
-        const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(cleanFilePath);
-        if (publicUrlData?.publicUrl) {
-          window.open(publicUrlData.publicUrl, '_blank');
-          return;
-        } else {
-          toast.error('Failed to get public URL');
-          return;
-        }
-      }
-  
-      // Step 3: Handle private bucket — try signed URL first
-      const { data: signedData, error: signedError } = await supabase.storage
-        .from(bucketName)
-        .createSignedUrl(cleanFilePath, 60);
-        console.log(cleanFilePath);
-        
-  
-      if (signedData?.signedUrl) {
-        window.open(signedData.signedUrl, '_blank');
-        return;
-      }
-  
-      console.warn('Signed URL failed, attempting fallback download via blob:', signedError);
-  
-      // Step 4: Fallback — download file as blob
-      const { data: blobData, error: blobError } = await supabase.storage
-        .from(bucketName)
-        .download(cleanFilePath);
-  
-      if (blobError || !blobData) {
-        toast.error('Fallback download failed: ' + (blobError?.message || 'File not found'));
-        return;
-      }
-  
-      // Create a download link from the blob
-      const blobUrl = URL.createObjectURL(blobData);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = cleanFilePath.split('/').pop() || 'download';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(blobUrl);
-  
-      toast.success('File downloaded via fallback method');
-    } catch (err) {
-      console.error('Unexpected error during download:', err);
-      toast.error('Unexpected error occurred during download');
-    }
+  // Add missing functions
+  function openFilePreview(fileUrl: string) {
+    setPreviewFile(fileUrl);
   }
-  
-  // Function to preview a file
-  function openFilePreview(filePath: string) {
-    setPreviewFile(filePath);
-  }
-  
-  // Function to close the preview
+
   function closeFilePreview() {
     setPreviewFile(null);
+  }
+
+  function downloadFile(fileUrl: string) {
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.click();
   }
 
   function goBack() {
     navigate(-1);
   }
 
-  // Check if the current user is a treasury user
-  const isTreasuryUser = userRole === 'treasury';
-  
-  // Check if the current user is a trade user
-  const isTradeUser = userRole === 'trade';
+  // Add early return for missing ID
+  if (!id) {
+    return (
+      <div className="container mx-auto px-4 py-12">
+        <div className="bg-white rounded-lg shadow p-6 text-center">
+          <h2 className="text-2xl font-bold text-red-600 mb-2">Invalid Transaction</h2>
+          <p className="text-gray-600 mb-6">No transaction ID provided.</p>
+          <button
+            onClick={goBack}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+          >
+            <ArrowLeft className="h-5 w-5 mr-2" />
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -454,7 +387,7 @@ export default function TransactionDetails() {
                   <p className="text-base font-semibold">${formatCurrency(transaction.loan_balance)}</p>
                 </div>
                 <div className="flex flex-col">
-                  <p className="text-sm font-medium text-gray-500">tenor</p>
+                  <p className="text-sm font-medium text-gray-500">Tenor</p>
                   <p className="text-base font-semibold">{transaction.tenor || 'N/A'}</p>
                 </div>
               </div>
@@ -490,7 +423,7 @@ export default function TransactionDetails() {
                 <div className="space-y-4">
                   <div className="flex flex-col">
                     <p className="text-sm font-medium text-gray-500">Created By</p>
-                    <p className="text-base font-semibold">{creator?.full_name || transaction.created_by || 'N/A'}</p>
+                    <p className="text-base font-semibold">{creator?.email || transaction.created_by || 'N/A'}</p>
                   </div>
                   <div className="flex flex-col">
                     <p className="text-sm font-medium text-gray-500">Created At</p>
@@ -500,7 +433,7 @@ export default function TransactionDetails() {
                     <>
                       <div className="flex flex-col">
                         <p className="text-sm font-medium text-gray-500">Verified By</p>
-                        <p className="text-base font-semibold">{verifier?.full_name || transaction.verified_by || 'N/A'}</p>
+                        <p className="text-base font-semibold">{verifier?.email || transaction.verified_by || 'N/A'}</p>
                       </div>
                       <div className="flex flex-col">
                         <p className="text-sm font-medium text-gray-500">Verified At</p>
@@ -512,7 +445,7 @@ export default function TransactionDetails() {
                     <>
                       <div className="flex flex-col">
                         <p className="text-sm font-medium text-gray-500">Approved/Denied By</p>
-                        <p className="text-base font-semibold">{approver?.full_name || transaction.approved_by || 'N/A'}</p>
+                        <p className="text-base font-semibold">{approver?.email || transaction.approved_by || 'N/A'}</p>
                       </div>
                       <div className="flex flex-col">
                         <p className="text-sm font-medium text-gray-500">Approved/Denied At</p>
@@ -580,7 +513,7 @@ export default function TransactionDetails() {
                     <FileCheck className="h-6 w-6 text-blue-600 mr-3" />
                     <p className="text-base">
                       Documentation was <span className="font-bold">verified</span>
-                      {transaction.verified_by && ` by ${verifier?.full_name || transaction.verified_by}`}
+                      {transaction.verified_by && ` by ${verifier?.email || transaction.verified_by}`}
                       {transaction.verified_at && ` on ${new Date(transaction.verified_at).toLocaleDateString()}`}
                     </p>
                   </div>
@@ -596,7 +529,7 @@ export default function TransactionDetails() {
                     )}
                     <p className="text-base">
                       This transaction was <span className="font-bold">{transaction.status}</span>
-                      {transaction.approved_by && ` by ${approver?.full_name || transaction.approved_by}`}
+                      {transaction.approved_by && ` by ${approver?.email || transaction.approved_by}`}
                       {transaction.approved_at && ` on ${new Date(transaction.approved_at).toLocaleDateString()}`}
                     </p>
                   </div>
@@ -611,7 +544,7 @@ export default function TransactionDetails() {
       <div className="mt-12 pt-4 border-t border-red-200 flex items-center justify-between">
         <div className="flex items-center">
           <img 
-            src="https://lpywaflkmzwuxzpqaxgg.supabase.co/storage/v1/object/sign/documents/logo.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5XzdkYjlmN2VlLWE2NGUtNDE3Ny04Y2U0LTY3YmFjZDU5MmYwZCJ9.eyJ1cmwiOiJkb2N1bWVudHMvbG9nby5wbmciLCJpYXQiOjE3NDY2MzI4MjgsImV4cCI6MTgzMzAzMjgyOH0.A4lhanGiT9JBdaWZSUYiCO7-Q7QJJQGzrC3NDYdEOlY" 
+            src="https://lpywaflkmzwuxzpqaxgg.supabase.co/storage/v1/object/sign/documents/logo.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hMGZmNzc1Yy1iZjY5LTRjNDYtOWYyMy04MjlkZGJhYzIyZDQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJkb2N1bWVudHMvbG9nby5wbmciLCJpYXQiOjE3NTAwNjc2NDMsImV4cCI6MTc5MzI2NzY0M30.8vS6uWpEToikOsW6L9CMJa2SHqDvg7TL36S7FeT91SA" 
             alt="Company Logo" 
             className="h-8 mr-3" 
           />

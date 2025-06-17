@@ -1,18 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import apiClient from '../api/client';
 
 interface Transaction {
   id: string;
   amount: number;
   description: string | null;
-  customer_name:string
+  customer_name: string;
   status: 'pending' | 'approved' | 'denied';
   created_at: string;
   created_by: string;
-  sector:string;
+  sector: string;
 }
 
 export default function TradeDashboard() {
@@ -28,34 +28,51 @@ export default function TradeDashboard() {
   // Use useCallback to memoize the fetchTransactions function
   const fetchTransactions = useCallback(async () => {
     try {
-      let query = supabase
-        .from('transactions')
-        .select('*')
-        .order('created_at', { ascending: false });
-
+      setIsLoading(true);
+      
+      // Build query parameters
+      const params: any = {};
       if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
+        params.status = statusFilter;
       }
 
-      const { data, error } = await query;
+      const response = await apiClient.get('/transactions', { params });
+      
+      // Handle different response structures
+      let transactionsData = [];
+      
+      if (Array.isArray(response.data)) {
+        transactionsData = response.data;
+      } else if (Array.isArray(response.data.data)) {
+        transactionsData = response.data.data;
+      } else if (response.data.transactions) {
+        transactionsData = response.data.transactions;
+      }
 
-      if (error) throw error;
-      setTransactions(data || []);
+      setTransactions(transactionsData);
       
       // Calculate amounts for dashboard cards
-      if (data) {
-        const total = data.reduce((sum, t) => sum + t.amount, 0);
+      if (transactionsData.length > 0) {
+        const total = transactionsData.reduce((sum: number, t: Transaction) => sum + t.amount, 0);
         setTotalAmount(total);
         
-        const pending = data.filter(t => t.status === 'pending').reduce((sum, t) => sum + t.amount, 0);
+        const pending = transactionsData.filter((t: Transaction) => t.status === 'pending').reduce((sum: number, t: Transaction) => sum + t.amount, 0);
         setPendingAmount(pending);
         
-        const approved = data.filter(t => t.status === 'approved').reduce((sum, t) => sum + t.amount, 0);
+        const approved = transactionsData.filter((t: Transaction) => t.status === 'approved').reduce((sum: number, t: Transaction) => sum + t.amount, 0);
         setApprovedAmount(approved);
+      } else {
+        setTotalAmount(0);
+        setPendingAmount(0);
+        setApprovedAmount(0);
       }
     } catch (error) {
+      console.error('Error fetching transactions:', error);
       toast.error('Failed to fetch transactions');
-      console.error('Error:', error);
+      setTransactions([]);
+      setTotalAmount(0);
+      setPendingAmount(0);
+      setApprovedAmount(0);
     } finally {
       setIsLoading(false);
     }
@@ -65,40 +82,43 @@ export default function TradeDashboard() {
     fetchTransactions();
   }, [fetchTransactions]); // Now fetchTransactions includes statusFilter as a dependency
 
-  // async function handleStatusUpdate(e: React.MouseEvent, transactionId: string, newStatus: 'approved' | 'denied') {
-  //   // Prevent the click from propagating to the row and navigating
-  //   e.stopPropagation();
+  // Optional: If you want to add back the status update functionality using the API
+  async function handleStatusUpdate(e: React.MouseEvent, transactionId: string, newStatus: 'approved' | 'denied') {
+    // Prevent the click from propagating to the row and navigating
+    e.stopPropagation();
     
-  //   try {
-  //     const { error } = await supabase
-  //       .from('transactions')
-  //       .update({
-  //         status: newStatus,
-  //         approved_by: user?.id
-  //       })
-  //       .eq('id', transactionId);
+    try {
+      await apiClient.put(`/transactions/${transactionId}/status`, {
+        status: newStatus,
+        approved_by: user?.id
+      });
 
-  //     if (error) throw error;
-
-  //     toast.success(`Transaction ${newStatus} successfully`);
-  //     fetchTransactions();
-  //   } catch (error) {
-  //     toast.error(`Failed to ${newStatus} transaction`);
-  //     console.error('Error:', error);
-  //   }
-  // }
+      toast.success(`Transaction ${newStatus} successfully`);
+      fetchTransactions();
+    } catch (error) {
+      console.error('Error updating transaction status:', error);
+      toast.error(`Failed to ${newStatus} transaction`);
+    }
+  }
   
   function navigateToTransactionDetails(transactionId: string) {
     navigate(`/transactions/${transactionId}`);
   }
 
-  // Format amount with thousand separators
   function formatAmount(amount: number): string {
-    return amount.toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
-  }
+  return '$' + amount.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+function calculateTotalAmount(status?: 'pending' | 'approved' | 'denied') {
+  const total = transactions
+    .filter(t => !status || t.status === status)
+    .reduce((sum, transaction) => sum + Number(transaction.amount), 0);
+  
+  return formatAmount(total);
+}
 
   // Type-safe onChange handler for the select
   const handleStatusFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -110,7 +130,7 @@ export default function TradeDashboard() {
     <div className="container mx-auto px-4 py-8 bg-gray-50">
       <div className="flex items-center">
           <img 
-            src="https://lpywaflkmzwuxzpqaxgg.supabase.co/storage/v1/object/sign/documents/logo.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5XzdkYjlmN2VlLWE2NGUtNDE3Ny04Y2U0LTY3YmFjZDU5MmYwZCJ9.eyJ1cmwiOiJkb2N1bWVudHMvbG9nby5wbmciLCJpYXQiOjE3NDY2MzI4MjgsImV4cCI6MTgzMzAzMjgyOH0.A4lhanGiT9JBdaWZSUYiCO7-Q7QJJQGzrC3NDYdEOlY" 
+            src="https://lpywaflkmzwuxzpqaxgg.supabase.co/storage/v1/object/sign/documents/logo.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hMGZmNzc1Yy1iZjY5LTRjNDYtOWYyMy04MjlkZGJhYzIyZDQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJkb2N1bWVudHMvbG9nby5wbmciLCJpYXQiOjE3NTAwNjc2NDMsImV4cCI6MTc5MzI2NzY0M30.8vS6uWpEToikOsW6L9CMJa2SHqDvg7TL36S7FeT91SA" 
             alt="Company Logo" 
             className="h-12 mr-4"
           />
@@ -124,15 +144,15 @@ export default function TradeDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500 hover:shadow-lg transition-all">
           <h3 className="text-lg font-medium mb-2 text-gray-700">Total Transactions</h3>
-          <p className="text-3xl font-bold text-blue-600">${formatAmount(totalAmount)}</p>
+          <p className="text-3xl font-bold text-blue-600">{calculateTotalAmount()}</p>
         </div>
         <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500 hover:shadow-lg transition-all">
           <h3 className="text-lg font-medium mb-2 text-gray-700">Pending Approval</h3>
-          <p className="text-3xl font-bold text-yellow-600">${formatAmount(pendingAmount)}</p>
+          <p className="text-3xl font-bold text-yellow-600">{calculateTotalAmount('pending')}</p>
         </div>
         <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500 hover:shadow-lg transition-all">
           <h3 className="text-lg font-medium mb-2 text-gray-700">Approved Transactions</h3>
-          <p className="text-3xl font-bold text-green-600">${formatAmount(approvedAmount)}</p>
+          <p className="text-3xl font-bold text-green-600">{calculateTotalAmount('approved')}</p>
         </div>
       </div>
 
@@ -170,6 +190,8 @@ export default function TradeDashboard() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sector</th>
+                  {/* Uncomment if you want to add action buttons */}
+                  {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th> */}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -208,6 +230,27 @@ export default function TradeDashboard() {
                           <div className="text-sm text-gray-500">N/A</div>
                         )}
                     </td>
+                    {/* Uncomment if you want to add action buttons */}
+                    {/* 
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      {transaction.status === 'pending' && (
+                        <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={(e) => handleStatusUpdate(e, transaction.id, 'approved')}
+                            className="text-green-600 hover:text-green-900 bg-green-100 hover:bg-green-200 px-2 py-1 rounded text-xs"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={(e) => handleStatusUpdate(e, transaction.id, 'denied')}
+                            className="text-red-600 hover:text-red-900 bg-red-100 hover:bg-red-200 px-2 py-1 rounded text-xs"
+                          >
+                            Deny
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                    */}
                   </tr>
                 ))}
               </tbody>
@@ -220,7 +263,7 @@ export default function TradeDashboard() {
       <div className="mt-12 pt-4 border-t border-red-200 flex items-center justify-between">
         <div className="flex items-center">
           <img 
-            src="https://lpywaflkmzwuxzpqaxgg.supabase.co/storage/v1/object/sign/documents/logo.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5XzdkYjlmN2VlLWE2NGUtNDE3Ny04Y2U0LTY3YmFjZDU5MmYwZCJ9.eyJ1cmwiOiJkb2N1bWVudHMvbG9nby5wbmciLCJpYXQiOjE3NDY2MzI4MjgsImV4cCI6MTgzMzAzMjgyOH0.A4lhanGiT9JBdaWZSUYiCO7-Q7QJJQGzrC3NDYdEOlY" 
+            src="https://lpywaflkmzwuxzpqaxgg.supabase.co/storage/v1/object/sign/documents/logo.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hMGZmNzc1Yy1iZjY5LTRjNDYtOWYyMy04MjlkZGJhYzIyZDQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJkb2N1bWVudHMvbG9nby5wbmciLCJpYXQiOjE3NTAwNjc2NDMsImV4cCI6MTc5MzI2NzY0M30.8vS6uWpEToikOsW6L9CMJa2SHqDvg7TL36S7FeT91SA" 
             alt="Company Logo" 
             className="h-8 mr-3" 
           />
