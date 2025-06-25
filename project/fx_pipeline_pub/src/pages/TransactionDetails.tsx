@@ -465,7 +465,9 @@ export default function TransactionDetails() {
                 <div className="mt-4">
                   <ul className="divide-y divide-gray-200">
                     {transaction.uploaded_files.map((file, index) => {
-                      const fileName = file.split('/').pop() || `Document ${index + 1}`;
+                      const fileName = (typeof file === 'string' && file.split) 
+                      ? file.split('/').pop() || `Document ${index + 1}`
+                      : `Document ${index + 1}`;
                       return (
                         <li key={index} className="py-3 flex justify-between items-center hover:bg-gray-50 rounded-md px-2">
                           <div className="flex items-center">
