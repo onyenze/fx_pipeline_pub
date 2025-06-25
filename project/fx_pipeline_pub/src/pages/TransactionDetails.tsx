@@ -23,7 +23,13 @@ interface Transaction {
   funding_status: string;
   purpose: string;
   tenor: number;
-  uploaded_files: string[];
+  uploaded_files: Array<{
+    url: string;
+    public_id: string;
+    format: string;
+    resource_type: string;
+    bytes: number;
+  }>; 
   status: 'pending' | 'approved' | 'denied';
   created_at: string;
   created_by: string;
@@ -179,21 +185,22 @@ export default function TransactionDetails() {
   }
 
   // Add missing functions
-  function openFilePreview(fileUrl: string) {
-    setPreviewFile(fileUrl);
-  }
+  function openFilePreview(fileObj: { url: string; format: string }) {
+  setPreviewFile(fileObj.url);
+}
 
-  function closeFilePreview() {
-    setPreviewFile(null);
-  }
+function closeFilePreview() {
+  setPreviewFile(null);
+}
 
-  function downloadFile(fileUrl: string) {
-    const link = document.createElement('a');
-    link.href = fileUrl;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    link.click();
-  }
+function downloadFile(fileObj: { url: string; format: string }) {
+  const link = document.createElement('a');
+  link.href = fileObj.url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.download = `document.${fileObj.format}`; // Optional: set filename
+  link.click();
+}
 
   function goBack() {
     navigate(-1);
@@ -458,43 +465,40 @@ export default function TransactionDetails() {
             </div>
           </div>
           
+          {/* Update your file rendering section */}
           {transaction.uploaded_files && transaction.uploaded_files.length > 0 && (
-            <div className="mt-8">
-              <div className="bg-white shadow-md rounded-lg p-5 border-l-4 border-yellow-500">
-                <h3 className="text-lg font-medium text-yellow-700 mb-4 border-b pb-2">Uploaded Documents</h3>
-                <div className="mt-4">
-                  <ul className="divide-y divide-gray-200">
-                    {transaction.uploaded_files.map((file, index) => {
-                      const fileName = (typeof file === 'string' && file.split) 
-                      ? file.split('/').pop() || `Document ${index + 1}`
-                      : `Document ${index + 1}`;
-                      return (
-                        <li key={index} className="py-3 flex justify-between items-center hover:bg-gray-50 rounded-md px-2">
-                          <div className="flex items-center">
-                            <FileText className="h-5 w-5 text-red-500 mr-3" />
-                            <p className="text-sm font-medium text-gray-800">{fileName}</p>
-                          </div>
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => openFilePreview(file)}
-                              className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                            >
-                              <Eye className="h-4 w-4 mr-1 text-red-500" />
-                              Preview
-                            </button>
-                            <button
-                              onClick={() => downloadFile(file)}
-                              className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                            >
-                              <Download className="h-4 w-4 mr-1 text-red-500" />
-                              Download
-                            </button>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Uploaded Documents</h3>
+              <div className="grid grid-cols-1 gap-3">
+                {transaction.uploaded_files.map((file, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <FileText className="h-5 w-5 text-blue-500" />
+                      <span className="text-sm font-medium text-gray-900">
+                        Document {index + 1} ({file.format?.toUpperCase()})
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {(file.bytes / 1024 / 1024).toFixed(2)} MB
+                      </span>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => openFilePreview(file)}
+                        className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Preview
+                      </button>
+                      <button
+                        onClick={() => downloadFile(file)}
+                        className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
+                      >
+                        <Download className="h-4 w-4 mr-1" />
+                        Download
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
