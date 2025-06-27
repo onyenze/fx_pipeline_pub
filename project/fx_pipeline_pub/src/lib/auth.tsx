@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/client';
 
 interface User {
@@ -15,7 +14,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ success: boolean; user?: User }>;
   register: (userData: {
     email: string;
     password: string;
@@ -33,7 +32,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
   // Computed property for authentication status
   const isAuthenticated = !!(user && token);
@@ -77,23 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Helper function to get default route for user role
-  function getDefaultRouteForRole(role: string): string {
-    switch(role.toLowerCase()) {
-      case 'marketing': 
-        return '/marketing';
-      case 'trade': 
-        return '/trade';
-      case 'treasury': 
-        return '/treasury';
-      case 'admin': 
-        return '/admin';
-      default: 
-        return '/login';
-    }
-  }
-
-  async function login(email: string, password: string) {
+  async function login(email: string, password: string): Promise<{ success: boolean; user?: User }> {
     setLoading(true);
     try {
       const response = await apiClient.post('/users/signin', { 
@@ -118,12 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(user);
       setToken(token);
       
-      // Navigate to appropriate dashboard
-      const defaultRoute = getDefaultRouteForRole(user.role);
-      if (defaultRoute === '/login') {
-        throw new Error(`Unknown role: ${user.role}`);
-      }
-      navigate(defaultRoute, { replace: true });
+      return { success: true, user };
       
     } catch (error) {
       console.error('Login error:', error);
@@ -147,7 +124,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     try {
       await apiClient.post('/users', userData);
-      navigate('/login', { replace: true });
     } catch (error) {
       console.error('Registration error:', error);
       throw error;
@@ -161,7 +137,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     delete apiClient.defaults.headers.common['Authorization'];
     setUser(null);
     setToken(null);
-    navigate('/login', { replace: true });
   }
 
   return (

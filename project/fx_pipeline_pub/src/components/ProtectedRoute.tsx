@@ -1,12 +1,13 @@
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 
 interface ProtectedRouteProps {
   allowedRoles?: string[];
+  children: React.ReactNode;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles = [] }) => {
-  const { isAuthenticated, user, loading } = useAuth();
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles = [], children }) => {
+  const { user, loading } = useAuth();
 
   // Show loading spinner while checking authentication
   if (loading) {
@@ -17,11 +18,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles = [] }) =>
     );
   }
 
-  // Redirect to login if not authenticated
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
+  // At this point, we know user is authenticated (handled by RequireAuth wrapper)
   // Check if user has required role
   if (allowedRoles.length > 0 && user && !allowedRoles.includes(user.role.toLowerCase())) {
     // Redirect to appropriate dashboard based on user role
@@ -41,7 +38,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles = [] }) =>
   }
 
   // Render the protected component
-  return <Outlet />;
+  return <>{children}</>;
 };
 
 export default ProtectedRoute;

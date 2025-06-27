@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './lib/auth';
 import Login from './pages/Login';
@@ -42,10 +42,11 @@ function DefaultRedirect() {
   }
 }
 
-// Component to handle not found routes
-function NotFound() {
+// Component to handle authentication required for protected routes
+function RequireAuth({ children }: { children: React.JSX.Element }) {
   const { isAuthenticated, loading } = useAuth();
-  
+  const location = useLocation();
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -53,13 +54,13 @@ function NotFound() {
       </div>
     );
   }
-  
+
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    // Redirect to login with the attempted location
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
-  
-  // If authenticated but route doesn't exist, redirect to appropriate dashboard
-  return <DefaultRedirect />;
+
+  return children;
 }
 
 // Loading component
@@ -84,32 +85,52 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       
-      {/* Protected routes */}
-      <Route element={<ProtectedRoute allowedRoles={['marketing', 'treasury']} />}>
-        <Route path="/marketing" element={<MarketingDashboard />} />
-      </Route>
+      {/* Protected routes - wrapped with RequireAuth */}
+      <Route path="/marketing" element={
+        <RequireAuth>
+          <ProtectedRoute allowedRoles={['marketing', 'treasury']}>
+            <MarketingDashboard />
+          </ProtectedRoute>
+        </RequireAuth>
+      } />
       
-      <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-        <Route path="/admin" element={<AdminUserManagement />} />
-      </Route>
+      <Route path="/admin" element={
+        <RequireAuth>
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminUserManagement />
+          </ProtectedRoute>
+        </RequireAuth>
+      } />
       
-      <Route element={<ProtectedRoute allowedRoles={['trade']} />}>
-        <Route path="/trade" element={<TradeDashboard />} />
-      </Route>
+      <Route path="/trade" element={
+        <RequireAuth>
+          <ProtectedRoute allowedRoles={['trade']}>
+            <TradeDashboard />
+          </ProtectedRoute>
+        </RequireAuth>
+      } />
       
-      <Route element={<ProtectedRoute allowedRoles={['treasury']} />}>
-        <Route path="/treasury" element={<TreasuryDashboard />} />
-      </Route>
+      <Route path="/treasury" element={
+        <RequireAuth>
+          <ProtectedRoute allowedRoles={['treasury']}>
+            <TreasuryDashboard />
+          </ProtectedRoute>
+        </RequireAuth>
+      } />
       
-      <Route element={<ProtectedRoute allowedRoles={['marketing', 'treasury', 'trade', 'admin']} />}>
-        <Route path="/transactions/:id" element={<TransactionDetails />} />
-      </Route>
+      <Route path="/transactions/:id" element={
+        <RequireAuth>
+          <ProtectedRoute allowedRoles={['marketing', 'treasury', 'trade', 'admin']}>
+            <TransactionDetails />
+          </ProtectedRoute>
+        </RequireAuth>
+      } />
       
       {/* Default redirect for root */}
       <Route path="/" element={<DefaultRedirect />} />
       
       {/* Catch-all route for undefined paths */}
-      <Route path="*" element={<NotFound />} />
+      <Route path="*" element={<DefaultRedirect />} />
     </Routes>
   );
 }

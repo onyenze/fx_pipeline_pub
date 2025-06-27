@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import toast from 'react-hot-toast';
 import { Lock } from 'lucide-react';
@@ -7,15 +7,44 @@ import { Lock } from 'lucide-react';
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
+  const from = location.state?.from?.pathname || null;
+
+  const getDefaultRouteForRole = (role: string): string => {
+    switch(role.toLowerCase()) {
+      case 'marketing': 
+        return '/marketing';
+      case 'trade': 
+        return '/trade';
+      case 'treasury': 
+        return '/treasury';
+      case 'admin': 
+        return '/admin';
+      default: 
+        return '/login';
+    }
+  };
 
   async function handleSubmit(e: React.FormEvent) {
   e.preventDefault();
+    setIsLoading(true);
   try {
-    await login(email, password);
-    toast.success('Successfully logged in!');
-    // Remove the navigate call here - it's now handled in the auth context
+    const result = await login(email, password);
+      
+      if (result.success && result.user) {
+        toast.success('Login successful!');
+        
+        // Navigate to the page user was trying to access, or default dashboard
+        if (from && from !== '/login') {
+          navigate(from, { replace: true });
+        } else {
+          const defaultRoute = getDefaultRouteForRole(result.user.role);
+          navigate(defaultRoute, { replace: true });
+        }
+      }
   } catch (error) {
     toast.error('Failed to log in. Please check your credentials.');
   }
