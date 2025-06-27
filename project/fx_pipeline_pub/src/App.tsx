@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './lib/auth';
@@ -13,7 +14,7 @@ import TransactionDetails from './pages/TransactionDetails';
 // Component to handle default redirects based on user role
 function DefaultRedirect() {
   const { user, isAuthenticated, loading } = useAuth();
-  
+  // const [isLoggedIn, setIsLoggedIn] = useState(false);
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -23,9 +24,9 @@ function DefaultRedirect() {
   }
   
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate  to="/login" replace />;
   }
-  
+  // return isLoggedIn ? "/trade"  : "/" ;
   // Redirect based on user role
   const role = user?.role?.toLowerCase();
   switch (role) {
@@ -57,7 +58,7 @@ function RequireAuth({ children }: { children: React.JSX.Element }) {
 
   if (!isAuthenticated) {
     // Redirect to login with the attempted location
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to="/" state={{ from: location }} replace />;
   }
 
   return children;

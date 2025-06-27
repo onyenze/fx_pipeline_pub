@@ -8,19 +8,20 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const { login } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const from = location.state?.from?.pathname || null;
-
+ 
   const getDefaultRouteForRole = (role: string): string => {
     switch(role.toLowerCase()) {
       case 'marketing': 
-        return '/marketing';
+        return "/marketing";
       case 'trade': 
-        return '/trade';
+        return "/trade";
       case 'treasury': 
-        return '/treasury';
+        return "/treasury";
       case 'admin': 
         return '/admin';
       default: 
@@ -44,6 +45,7 @@ export default function Login() {
           const defaultRoute = getDefaultRouteForRole(result.user.role);
           navigate(defaultRoute, { replace: true });
         }
+        setIsLoggedIn(true);
       }
   } catch (error) {
     toast.error('Failed to log in. Please check your credentials.');
