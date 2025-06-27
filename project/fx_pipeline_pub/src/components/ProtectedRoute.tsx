@@ -1,25 +1,47 @@
-import { useAuth } from '../lib/auth';
 import { Navigate, Outlet } from 'react-router-dom';
+import { useAuth } from '../lib/auth';
 
 interface ProtectedRouteProps {
-  allowedRoles: string[];
-  children?: React.ReactNode;
+  allowedRoles?: string[];
 }
 
-export default function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) {
-  const { user, loading } = useAuth();
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles = [] }) => {
+  const { isAuthenticated, user, loading } = useAuth();
 
+  // Show loading spinner while checking authentication
   if (loading) {
-    return <div>Loading...</div>; // Or your custom loading component
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
+      </div>
+    );
   }
 
-  if (!user) {
+  // Redirect to login if not authenticated
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  if (!allowedRoles.includes(user.role)) {
-    return <Navigate to="/unauthorized" replace />; // Create this route if needed
+  // Check if user has required role
+  if (allowedRoles.length > 0 && user && !allowedRoles.includes(user.role.toLowerCase())) {
+    // Redirect to appropriate dashboard based on user role
+    const role = user.role.toLowerCase();
+    switch (role) {
+      case 'admin':
+        return <Navigate to="/admin" replace />;
+      case 'marketing':
+        return <Navigate to="/marketing" replace />;
+      case 'trade':
+        return <Navigate to="/trade" replace />;
+      case 'treasury':
+        return <Navigate to="/treasury" replace />;
+      default:
+        return <Navigate to="/login" replace />;
+    }
   }
 
-  return children ? children : <Outlet />;
-}
+  // Render the protected component
+  return <Outlet />;
+};
+
+export default ProtectedRoute;

@@ -14,6 +14,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
+  isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (userData: {
     email: string;
@@ -23,6 +24,7 @@ interface AuthContextType {
   }) => Promise<void>;
   logout: () => void;
   loading: boolean;
+  checkAuthStatus: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,87 +35,108 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Computed property for authentication status
+  const isAuthenticated = !!(user && token);
+
   useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  async function checkAuthStatus() {
+    setLoading(true);
     const storedToken = localStorage.getItem('token');
+    
     if (storedToken) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
-      fetchCurrentUser(storedToken);
+      apiClient.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+      await fetchCurrentUser(storedToken);
     } else {
       setLoading(false);
     }
-  }, []);
+  }
 
   async function fetchCurrentUser(token: string) {
-  try {
-    const response = await apiClient.get('/user');
-    const { data } = response.data; // Adjust according to your actual response
-    
-    if (!data?.user) {
-      throw new Error('User data not found in response');
+    try {
+      const response = await apiClient.get('/user');
+      const { data } = response.data;
+      
+      if (!data?.user) {
+        throw new Error('User data not found in response');
+      }
+      
+      setUser(data.user);
+      setToken(token);
+    } catch (error) {
+      console.error('Failed to fetch current user:', error);
+      // Clear invalid token
+      localStorage.removeItem('token');
+      delete apiClient.defaults.headers.common['Authorization'];
+      setUser(null);
+      setToken(null);
+    } finally {
+      setLoading(false);
     }
-    
-    setUser(data.user);
-    setToken(token);
-  } catch (error) {
-    console.error('Failed to fetch current user:', error);
-    localStorage.removeItem('token');
-    delete apiClient.defaults.headers.common['Authorization'];
-  } finally {
-    setLoading(false);
   }
-}
+
+  // Helper function to get default route for user role
+  function getDefaultRouteForRole(role: string): string {
+    switch(role.toLowerCase()) {
+      case 'marketing': 
+        return '/marketing';
+      case 'trade': 
+        return '/trade';
+      case 'treasury': 
+        return '/treasury';
+      case 'admin': 
+        return '/admin';
+      default: 
+        return '/login';
+    }
+  }
 
   async function login(email: string, password: string) {
-  setLoading(true);
-  try {
-    const response = await apiClient.post('/users/signin', { 
-      email, 
-      password 
-    });
+    setLoading(true);
+    try {
+      const response = await apiClient.post('/users/signin', { 
+        email, 
+        password 
+      });
 
-    // Destructure according to your backend response
-    const { data } = response.data; // Extract the data object
-    const { user, token } = data; // Destructure user and token from data
+      const { data } = response.data;
+      const { user, token } = data;
 
-    if (!user || !token) {
-      throw new Error('Invalid response structure from server');
-    }
+      if (!user || !token) {
+        throw new Error('Invalid response structure from server');
+      }
 
-    if (!user.role) {
-      throw new Error('User role not found in response');
-    }
+      if (!user.role) {
+        throw new Error('User role not found in response');
+      }
 
-    localStorage.setItem('token', token);
-    apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    
-    setUser(user);
-    setToken(token);
-    
-    // Role-based navigation
-    switch(user.role.toLowerCase()) {
-      case 'marketing': 
-        navigate('/marketing'); 
-        break;
-      case 'trade': 
-        navigate('/trade'); 
-        break;
-      case 'treasury': 
-        navigate('/treasury'); 
-        break;
-      case 'admin': 
-        navigate('/admin'); 
-        break;
-      default: 
-        navigate('/login');
+      localStorage.setItem('token', token);
+      apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      setUser(user);
+      setToken(token);
+      
+      // Navigate to appropriate dashboard
+      const defaultRoute = getDefaultRouteForRole(user.role);
+      if (defaultRoute === '/login') {
         throw new Error(`Unknown role: ${user.role}`);
+      }
+      navigate(defaultRoute, { replace: true });
+      
+    } catch (error) {
+      console.error('Login error:', error);
+      // Clear any partial state on error
+      localStorage.removeItem('token');
+      delete apiClient.defaults.headers.common['Authorization'];
+      setUser(null);
+      setToken(null);
+      throw error;
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Login error:', error);
-    throw error;
-  } finally {
-    setLoading(false);
   }
-}
 
   async function register(userData: {
     email: string;
@@ -124,7 +147,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     try {
       await apiClient.post('/users', userData);
-      navigate('/login');
+      navigate('/login', { replace: true });
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -132,14 +158,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   function logout() {
     localStorage.removeItem('token');
-    delete axios.defaults.headers.common['Authorization'];
+    delete apiClient.defaults.headers.common['Authorization'];
     setUser(null);
     setToken(null);
-    navigate('/login');
+    navigate('/login', { replace: true });
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      token, 
+      isAuthenticated,
+      login, 
+      register, 
+      logout, 
+      loading,
+      checkAuthStatus
+    }}>
       {children}
     </AuthContext.Provider>
   );
