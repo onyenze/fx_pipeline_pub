@@ -184,6 +184,25 @@ export default function TransactionDetails() {
     }
   }
 
+  async function rejectDocumentation() {
+    if (!transaction?.id) {
+      toast.error('Transaction ID is missing');
+      return;
+    }
+
+    try {
+      await apiClient.patch(`/transactions/${transaction.id}/reject`, {
+        verified_by: user?.id
+      });
+
+      toast.success('Documentation Rejected successfully');
+      fetchTransactionDetails(transaction.id);
+    } catch (error) {
+      toast.error('Failed to verify documentation');
+      console.error('Error:', error);
+    }
+  }
+
   // Add missing functions
   function openFilePreview(fileObj: { url: string; format: string }) {
   setPreviewFile(fileObj.url);
@@ -284,6 +303,18 @@ function downloadFile(fileObj: { url: string; format: string }) {
             >
               <FileCheck className="h-5 w-5 mr-2" />
               Verify Documentation
+            </button>
+          </div>
+        )}
+
+        {transaction.status === 'pending' && !transaction.documentation_verified && isTreasuryUser && (
+          <div className="flex space-x-3">
+            <button
+              onClick={rejectDocumentation}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-700 hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              <FileCheck className="h-5 w-5 mr-2" />
+              Reject Documentation
             </button>
           </div>
         )}
