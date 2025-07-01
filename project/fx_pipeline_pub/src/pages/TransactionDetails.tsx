@@ -295,8 +295,8 @@ function downloadFile(fileObj: { url: string; format: string }) {
         </div>
         
         {/* Treasury user verification button */}
-        {transaction.status === 'pending' && !transaction.documentation_verified && isTreasuryUser && (
-          <div className="flex space-x-3">
+        <div className="flex justify-end space-x-3">
+          {transaction.status === 'pending' && transaction.documentation_verified === null && isTreasuryUser && (
             <button
               onClick={verifyDocumentation}
               className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -304,11 +304,8 @@ function downloadFile(fileObj: { url: string; format: string }) {
               <FileCheck className="h-5 w-5 mr-2" />
               Verify Documentation
             </button>
-          </div>
-        )}
-
-        {transaction.status === 'pending' && !transaction.documentation_verified && isTreasuryUser && (
-          <div className="flex space-x-3">
+          )}
+          {transaction.status === 'pending' && transaction.documentation_verified === null && isTreasuryUser && (
             <button
               onClick={rejectDocumentation}
               className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-700 hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
@@ -316,8 +313,8 @@ function downloadFile(fileObj: { url: string; format: string }) {
               <FileCheck className="h-5 w-5 mr-2" />
               Reject Documentation
             </button>
-          </div>
-        )}
+          )}
+        </div>
         
         {/* Trade user approval buttons - only visible if documentation is verified */}
         {transaction.status === 'pending' && 
@@ -352,9 +349,17 @@ function downloadFile(fileObj: { url: string; format: string }) {
             </h2>
             <div className="flex items-center space-x-2">
               {/* Documentation Verification Badge */}
-              {transaction.documentation_verified && (
+              {transaction.documentation_verified === true ? (
                 <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-200 text-blue-800 mr-2">
                   Verified Documentation
+                </span>
+              ) : transaction.documentation_verified === false ? (
+                <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-200 text-red-800 mr-2">
+                  Rejected Documentation
+                </span>
+              ) : (
+                <span className="px-3 py-1 rounded-full text-sm font-medium bg-yellow-200 text-yellow-800 mr-2">
+                  Documentation Status Unknown
                 </span>
               )}
               {/* Status Badge */}
