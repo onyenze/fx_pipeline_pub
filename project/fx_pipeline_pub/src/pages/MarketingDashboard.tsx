@@ -567,7 +567,7 @@ export default function MarketingDashboard() {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">Amount: ${formatNumber(transaction.amount)}</div>
+                      <div className="text-sm text-gray-900">Amount: ${transaction.amount.toLocaleString('en-US')}</div>
                       <div className="text-sm text-gray-500">Purpose: {transaction.purpose}</div>
                       <div className="text-sm text-gray-500">Sector: {transaction.sector}</div>
                       {/* Display tenor if available */}
