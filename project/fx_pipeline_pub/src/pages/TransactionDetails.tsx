@@ -472,23 +472,11 @@ function downloadFile(fileObj: { url: string; format: string }) {
                     <p className="text-sm font-medium text-gray-500">Created At</p>
                     <p className="text-base font-semibold">{new Date(transaction.created_at).toLocaleString() || 'N/A'}</p>
                   </div>
-                  {transaction.documentation_verified && (
-                    <>
-                      <div className="flex flex-col">
-                        <p className="text-sm font-medium text-gray-500">Verified By</p>
-                        <p className="text-base font-semibold">{verifier?.email || transaction.verified_by || 'N/A'}</p>
-                      </div>
-                      <div className="flex flex-col">
-                        <p className="text-sm font-medium text-gray-500">Verified At</p>
-                        <p className="text-base font-semibold">{transaction.verified_at ? new Date(transaction.verified_at).toLocaleString() : 'N/A'}</p>
-                      </div>
-                    </>
-                  )}
-                  {transaction.approved_by && (
+                  {transaction.reviewed_by && (
                     <>
                       <div className="flex flex-col">
                         <p className="text-sm font-medium text-gray-500">Approved/Denied By</p>
-                        <p className="text-base font-semibold">{approver?.email || transaction.approved_by || 'N/A'}</p>
+                        <p className="text-base font-semibold">{approver?.email || transaction.reviewed_by || 'N/A'}</p>
                       </div>
                       <div className="flex flex-col">
                         <p className="text-sm font-medium text-gray-500">Approved/Denied At</p>
