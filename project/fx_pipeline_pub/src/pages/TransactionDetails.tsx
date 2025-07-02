@@ -295,7 +295,7 @@ function downloadFile(fileObj: { url: string; format: string }) {
         </div>
         
         {/* Treasury user verification button */}
-        <div className="flex justify-end space-x-3">
+        {/* <div className="flex justify-end space-x-3">
           {transaction.status === 'pending' && transaction.documentation_verified === null && isTreasuryUser && (
             <button
               onClick={verifyDocumentation}
@@ -314,11 +314,11 @@ function downloadFile(fileObj: { url: string; format: string }) {
               Reject Documentation
             </button>
           )}
-        </div>
+        </div> */}
         
         {/* Trade user approval buttons - only visible if documentation is verified */}
         {transaction.status === 'pending' && 
-          transaction.documentation_verified && 
+          transaction.documentation_verified === null && 
           isTradeUser && 
           user?.email !== transaction.created_by && (
             <div className="flex space-x-3">
@@ -349,7 +349,7 @@ function downloadFile(fileObj: { url: string; format: string }) {
             </h2>
             <div className="flex items-center space-x-2">
               {/* Documentation Verification Badge */}
-              {transaction.documentation_verified === true ? (
+              {/* {transaction.documentation_verified === true ? (
                 <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-200 text-blue-800 mr-2">
                   Verified Documentation
                 </span>
@@ -361,7 +361,7 @@ function downloadFile(fileObj: { url: string; format: string }) {
                 <span className="px-3 py-1 rounded-full text-sm font-medium bg-yellow-200 text-yellow-800 mr-2">
                   Documentation Status Unknown
                 </span>
-              )}
+              )} */}
               {/* Status Badge */}
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                 transaction.status === 'approved' ? 'bg-green-200 text-green-800' :
