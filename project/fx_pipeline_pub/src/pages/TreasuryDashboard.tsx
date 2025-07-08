@@ -89,32 +89,47 @@ export default function TreasuryDashboard() {
       return;
     }
 
-    toast.info('Requesting backend to generate report...');
+    toast.loading('Generating report...');
+    
+    const response = await apiClient.post('/generate-report', {
+      indicativeBuying,
+      indicativeSelling,
+    });
 
-    const response = await apiClient.post(
-      '/generate-report',
-      { indicativeBuying, indicativeSelling },
-      { responseType: 'blob' } // ⬅️ important for binary ZIP response
-    );
+    const { downloads } = response.data;
+    
+    if (!downloads) {
+      toast.error('Report failed to generate.');
+      return;
+    }
 
-    const blob = new Blob([response.data], { type: 'application/zip' });
-    const url = URL.createObjectURL(blob);
+    const { demandAndRate, pipelineDemand } = downloads;
 
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `FX_Report_Package_${new Date().toISOString().slice(0, 10)}.zip`;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    // Show download links or trigger downloads
+    const container = document.createElement('div');
+    container.innerHTML = `
+      <p>Download your reports:</p>
+      <ul>
+        <li><a href="${demandAndRate}" target="_blank">Demand and Rate Report</a></li>
+        <li><a href="${pipelineDemand}" target="_blank">FX Pipeline Demand Report</a></li>
+      </ul>
+    `;
+    toast.success(
+  <span>
+    <a href={demandAndRate} target="_blank" className="underline text-blue-500">Download Demand & Rate</a><br />
+    <a href={pipelineDemand} target="_blank" className="underline text-blue-500">Download FX Pipeline</a>
+  </span>,
+  // { duration: 10000 }
+);
 
-    toast.success('Report generated and downloaded successfully');
   } catch (error) {
     console.error('Error generating report:', error);
     toast.error('Failed to generate Excel report.');
+  } finally {
+    toast.dismiss();
   }
 }
+
 
 
 
