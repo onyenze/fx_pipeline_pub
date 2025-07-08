@@ -4,6 +4,7 @@ import { useAuth } from '../lib/auth';
 import apiClient from '../api/client';
 import toast from 'react-hot-toast';
 import { FileText, ArrowLeft, CheckCircle, XCircle, Download, Eye, FileCheck } from 'lucide-react';
+import TransactionEditModal from './transactionEditModal';
 
 interface Transaction {
   id: string;
@@ -76,6 +77,7 @@ const DocumentPreview: React.FC<DocumentPreviewProps> = ({ filePath, onClose }) 
 };
 
 export default function TransactionDetails() {
+  const [modalOpen, setModalOpen] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { id } = useParams();
@@ -89,6 +91,7 @@ export default function TransactionDetails() {
   const [previewFile, setPreviewFile] = useState<string | null>(null);
   
   // Add role checks
+  const isTreasury = user?.role?.toLowerCase() === 'treasury';
   const isTreasuryUser = user?.role === 'treasury' || user?.role === 'admin';
   const isTradeUser = user?.role === 'trade' || user?.role === 'admin';
   
@@ -349,19 +352,25 @@ function downloadFile(fileObj: { url: string; format: string }) {
             </h2>
             <div className="flex items-center space-x-2">
               {/* Documentation Verification Badge */}
-              {/* {transaction.documentation_verified === true ? (
-                <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-200 text-blue-800 mr-2">
-                  Verified Documentation
-                </span>
-              ) : transaction.documentation_verified === false ? (
-                <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-200 text-red-800 mr-2">
-                  Rejected Documentation
-                </span>
-              ) : (
-                <span className="px-3 py-1 rounded-full text-sm font-medium bg-yellow-200 text-yellow-800 mr-2">
-                  Documentation Status Unknown
-                </span>
-              )} */}
+              {/* Show only to treasury */}
+                    {isTreasury && (
+                      <button
+                        onClick={() => setModalOpen(true)}
+                        className="mt-4 px-4 py-2 bg-green-600 text-white rounded"
+                      >
+                        Edit Transaction
+                      </button>
+                    )}
+              
+                    <TransactionEditModal
+                      isOpen={modalOpen}
+                      onClose={() => setModalOpen(false)}
+                      transaction={transaction}
+                      onSuccess={() => {
+                        // You could refetch or update local state here
+                        window.location.reload(); 
+                      }}
+                    />
               {/* Status Badge */}
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                 transaction.status === 'approved' ? 'bg-green-200 text-green-800' :
