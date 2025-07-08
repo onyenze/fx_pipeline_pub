@@ -368,7 +368,7 @@ function downloadFile(fileObj: { url: string; format: string }) {
                       transaction={transaction}
                       onSuccess={() => {
                         // You could refetch or update local state here
-                        window.location.reload(); 
+                        // window.location.reload(); 
                       }}
                     />
               {/* Status Badge */}
