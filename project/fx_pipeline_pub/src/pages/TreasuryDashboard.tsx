@@ -79,6 +79,7 @@ export default function TreasuryDashboard() {
   }
   
 
+  
  async function generateExcelReport() {
   try {
     const indicativeBuying = prompt('Enter INDICATIVE BUYING rate:');
