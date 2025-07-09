@@ -29,64 +29,75 @@ const [totalPages, setTotalPages] = useState(1);
 const [totalItems, setTotalItems] = useState(0); // optional
 
 
+
   // Use useCallback to memoize the fetchTransactions function
   const fetchTransactions = useCallback(async (page = 1, pageSize = 10) => {
   try {
     setIsLoading(true);
 
-    // Build query parameters - FIXED: Don't duplicate params in URL and params object
     const params: any = {
       page,
-      size: pageSize, // Your API expects 'size', not 'pageSize'
+      size: pageSize,
     };
     if (statusFilter !== 'all') {
       params.status = statusFilter;
     }
 
-    console.log('Fetching transactions with params:', params); // Debug log
+    console.log('Fetching transactions with params:', params);
 
-    // FIXED: Use either params object OR URL params, not both
     const response = await apiClient.get('/transactions', { params });
 
-    console.log('Raw API response:', response.data); // Debug log
+    console.log('Raw API response:', response.data);
 
-    // Handle response with pagination
-    let transactionsData = [];
+    // FIXED: Always ensure we get an array
+    let transactionsData: Transaction[] = [];
     let totalPages = 1;
     let totalItems = 0;
 
-    // FIXED: Match your backend response structure
-    if (response.data?.transactions) {
+    // Handle different response structures
+    if (response.data?.transactions && Array.isArray(response.data.transactions)) {
       transactionsData = response.data.transactions;
       totalPages = response.data.totalPages ?? 1;
-      totalItems = response.data.total ?? 0; // Your API returns 'total', not 'totalItems'
-    } else if (response.data?.data) {
+      totalItems = response.data.total ?? 0;
+    } else if (response.data?.data && Array.isArray(response.data.data)) {
       transactionsData = response.data.data;
       totalPages = response.data.totalPages ?? 1;
       totalItems = response.data.totalItems ?? 0;
+    } else if (Array.isArray(response.data)) {
+      transactionsData = response.data;
     } else {
-      transactionsData = Array.isArray(response.data) ? response.data : [];
+      console.warn('Unexpected response structure:', response.data);
+      transactionsData = []; // Fallback to empty array
     }
 
-    console.log('Processed transactions data:', transactionsData); // Debug log
-    console.log('Total pages:', totalPages, 'Total items:', totalItems); // Debug log
+    console.log('Processed transactions data:', transactionsData);
+    console.log('Is array:', Array.isArray(transactionsData));
 
+    // FIXED: Always set an array, even if empty
     setTransactions(transactionsData);
     setCurrentPage(page);
     setTotalPages(totalPages);
     setTotalItems?.(totalItems);
 
     // Calculate amounts for dashboard cards
-    if (transactionsData.length > 0) {
-      const total = transactionsData.reduce((sum: number, t: Transaction) => sum + t.amount, 0);
+    if (Array.isArray(transactionsData) && transactionsData.length > 0) {
+      const total = transactionsData.reduce((sum: number, t: Transaction) => {
+        return sum + (typeof t.amount === 'number' ? t.amount : 0);
+      }, 0);
       setTotalAmount(total);
 
-      const pending = transactionsData.filter((t: Transaction) => t.status === 'pending')
-        .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
+      const pending = transactionsData
+        .filter((t: Transaction) => t.status === 'pending')
+        .reduce((sum: number, t: Transaction) => {
+          return sum + (typeof t.amount === 'number' ? t.amount : 0);
+        }, 0);
       setPendingAmount(pending);
 
-      const approved = transactionsData.filter((t: Transaction) => t.status === 'approved')
-        .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
+      const approved = transactionsData
+        .filter((t: Transaction) => t.status === 'approved')
+        .reduce((sum: number, t: Transaction) => {
+          return sum + (typeof t.amount === 'number' ? t.amount : 0);
+        }, 0);
       setApprovedAmount(approved);
     } else {
       setTotalAmount(0);
@@ -95,8 +106,10 @@ const [totalItems, setTotalItems] = useState(0); // optional
     }
   } catch (error:any) {
     console.error('Error fetching transactions:', error);
-    console.error('Error details:', error.response?.data); // More detailed error logging
+    console.error('Error details:', error.response?.data);
     toast.error('Failed to fetch transactions');
+    
+    // FIXED: Always set an empty array on error
     setTransactions([]);
     setTotalAmount(0);
     setPendingAmount(0);
@@ -141,13 +154,36 @@ useEffect(() => {
   });
 }
 
-function calculateTotalAmount(status?: 'pending' | 'approved' | 'denied') {
-  const total = transactions
-    .filter(t => !status || t.status === status)
-    .reduce((sum, transaction) => sum + Number(transaction.amount), 0);
+// FIXED: Always ensure transactions is an array before filtering
+const calculateTotalAmount = (status?: string) => {
+  // Guard clause: ensure transactions is an array
+  if (!Array.isArray(transactions)) {
+    console.warn('Transactions is not an array:', transactions);
+    return '$0';
+  }
+
+  if (!status) {
+    // Total amount
+    const total = transactions.reduce((sum: number, t: Transaction) => sum + (t.amount || 0), 0);
+    return `$${total.toLocaleString('en-US')}`;
+  }
   
-  return formatAmount(total);
-}
+  if (status === 'pending') {
+    const pending = transactions
+      .filter((t: Transaction) => t.status === 'pending')
+      .reduce((sum: number, t: Transaction) => sum + (t.amount || 0), 0);
+    return `$${pending.toLocaleString('en-US')}`;
+  }
+  
+  if (status === 'approved') {
+    const approved = transactions
+      .filter((t: Transaction) => t.status === 'approved')
+      .reduce((sum: number, t: Transaction) => sum + (t.amount || 0), 0);
+    return `$${approved.toLocaleString('en-US')}`;
+  }
+  
+  return '$0';
+};
 
   // Type-safe onChange handler for the select
   const handleStatusFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
