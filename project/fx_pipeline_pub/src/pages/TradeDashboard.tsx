@@ -45,17 +45,22 @@ const [totalItems, setTotalItems] = useState(0); // optional
     const response = await apiClient.get('/transactions', { params });
 
     // Handle response with pagination
-    let transactionsData = [];
+
     let totalPages = 1;
     let totalItems = 0;
 
-    if (response.data?.data) {
-      transactionsData = response.data.data;
-      totalPages = response.data.totalPages ?? 1;
-      totalItems = response.data.totalItems ?? 0;
-    } else {
-      transactionsData = Array.isArray(response.data) ? response.data : [];
-    }
+    let transactionsData: Transaction[] = [];
+
+if (Array.isArray(response.data)) {
+  transactionsData = response.data;
+} else if (Array.isArray(response.data?.data)) {
+  transactionsData = response.data.data;
+} else if (Array.isArray(response.data?.transactions)) {
+  transactionsData = response.data.transactions;
+} else {
+  transactionsData = []; // fallback to empty array
+}
+
 
     setTransactions(transactionsData);
     setCurrentPage(page);
