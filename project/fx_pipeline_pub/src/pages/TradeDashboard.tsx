@@ -29,57 +29,68 @@ const [totalPages, setTotalPages] = useState(1);
 const [totalItems, setTotalItems] = useState(0); // optional
 
   // Use useCallback to memoize the fetchTransactions function
-  const fetchTransactions = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      
-      // Build query parameters
-      const params: any = {};
-      if (statusFilter !== 'all') {
-        params.status = statusFilter;
-      }
+  const fetchTransactions = useCallback(async (page = 1, pageSize = 10) => {
+  try {
+    setIsLoading(true);
 
-      const response = await apiClient.get('/transactions', { params });
-      
-      // Handle different response structures
-      let transactionsData = [];
-      
-      if (Array.isArray(response.data)) {
-        transactionsData = response.data;
-      } else if (Array.isArray(response.data.data)) {
-        transactionsData = response.data.data;
-      } else if (response.data.transactions) {
-        transactionsData = response.data.transactions;
-      }
+    // Build query parameters
+    const params: any = {
+      page,
+      pageSize,
+    };
+    if (statusFilter !== 'all') {
+      params.status = statusFilter;
+    }
 
-      setTransactions(transactionsData);
-      
-      // Calculate amounts for dashboard cards
-      if (transactionsData.length > 0) {
-        const total = transactionsData.reduce((sum: number, t: Transaction) => sum + t.amount, 0);
-        setTotalAmount(total);
-        
-        const pending = transactionsData.filter((t: Transaction) => t.status === 'pending').reduce((sum: number, t: Transaction) => sum + t.amount, 0);
-        setPendingAmount(pending);
-        
-        const approved = transactionsData.filter((t: Transaction) => t.status === 'approved').reduce((sum: number, t: Transaction) => sum + t.amount, 0);
-        setApprovedAmount(approved);
-      } else {
-        setTotalAmount(0);
-        setPendingAmount(0);
-        setApprovedAmount(0);
-      }
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-      toast.error('Failed to fetch transactions');
-      setTransactions([]);
+    const response = await apiClient.get(`/transactions?page=${page}&size=${pageSize}`, { params });
+
+    // Handle response with pagination
+    let transactionsData = [];
+    let totalPages = 1;
+    let totalItems = 0;
+
+    if (response.data?.data) {
+      transactionsData = response.data.data;
+      totalPages = response.data.totalPages ?? 1;
+      totalItems = response.data.totalItems ?? 0;
+    } else {
+      transactionsData = Array.isArray(response.data) ? response.data : [];
+    }
+
+    setTransactions(transactionsData);
+    setCurrentPage(page);
+    setTotalPages(totalPages);
+    setTotalItems?.(totalItems); // optional if you use this
+
+    // Calculate amounts for dashboard cards
+    if (transactionsData.length > 0) {
+      const total = transactionsData.reduce((sum: number, t: Transaction) => sum + t.amount, 0);
+      setTotalAmount(total);
+
+      const pending = transactionsData.filter((t: Transaction) => t.status === 'pending')
+        .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
+      setPendingAmount(pending);
+
+      const approved = transactionsData.filter((t: Transaction) => t.status === 'approved')
+        .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
+      setApprovedAmount(approved);
+    } else {
       setTotalAmount(0);
       setPendingAmount(0);
       setApprovedAmount(0);
-    } finally {
-      setIsLoading(false);
     }
-  }, [statusFilter]);
+  } catch (error) {
+    console.error('Error fetching transactions:', error);
+    toast.error('Failed to fetch transactions');
+    setTransactions([]);
+    setTotalAmount(0);
+    setPendingAmount(0);
+    setApprovedAmount(0);
+  } finally {
+    setIsLoading(false);
+  }
+}, [statusFilter]);
+
 
 
   useEffect(() => {
