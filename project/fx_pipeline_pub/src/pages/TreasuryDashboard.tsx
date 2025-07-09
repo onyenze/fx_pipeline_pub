@@ -4,8 +4,8 @@ import { useAuth } from '../lib/auth';
 import { FileText, ArrowRightCircle } from 'lucide-react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import JSZip from 'jszip';
 import apiClient from '../api/client';
+import ReportDownloadModal from './reportModalProps';
 
 import { useNavigate } from 'react-router-dom';
 
@@ -27,8 +27,10 @@ export default function TreasuryDashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'denied'>('all');
-
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [reportLinks, setReportLinks] = useState<{ demand: string; pipeline: string } | null>(null);
+
 
   useEffect(() => {
     fetchTransactions();
@@ -80,73 +82,45 @@ export default function TreasuryDashboard() {
   
 
 
- async function generateExcelReport() {
-  try {
-    const indicativeBuying = prompt('Enter INDICATIVE BUYING rate:');
-    const indicativeSelling = prompt('Enter INDICATIVE SELLING rate:');
+   const generateExcelReport = async () => {
+    try {
+      const indicativeBuying = prompt('Enter INDICATIVE BUYING rate:');
+      const indicativeSelling = prompt('Enter INDICATIVE SELLING rate:');
 
-    if (!indicativeBuying || !indicativeSelling) {
-      toast.error('You must enter both rates.');
-      return;
+      if (!indicativeBuying || !indicativeSelling) {
+        toast.error('You must enter both rates.');
+        return;
+      }
+
+      toast.loading('Generating report...');
+
+      const response = await apiClient.post('/generate-report', {
+        indicativeBuying,
+        indicativeSelling,
+      });
+
+      const { downloads } = response.data;
+
+      if (!downloads) {
+        toast.error('Report failed to generate.');
+        return;
+      }
+
+      setReportLinks({
+        demand: downloads.demandAndRate,
+        pipeline: downloads.pipelineDemand,
+      });
+
+      setModalOpen(true);
+      toast.dismiss();
+      toast.success('Report generated successfully!');
+    } catch (error) {
+      console.error('Error generating report:', error);
+      toast.dismiss();
+      toast.error('Failed to generate Excel report.');
     }
+  };
 
-    toast.loading('Generating report...');
-    
-    const response = await apiClient.post('/generate-report', {
-      indicativeBuying,
-      indicativeSelling,
-    });
-
-    const { downloads } = response.data;
-    
-    if (!downloads) {
-      toast.error('Report failed to generate.');
-      return;
-    }
-
-    const { demandAndRate, pipelineDemand } = downloads;
-
-    // Show download links in a modal
-    const modal = document.createElement('div');
-    modal.innerHTML = `
-      <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
-      <div className="fixed inset-0 z-10 overflow-y-auto">
-        <div className="flex items-end justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-          <div className="fixed inset-0 transition-opacity" aria-hidden="true"></div>
-          <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-          <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-              <div className="sm:flex sm:items-start">
-                <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">Your reports are ready</h3>
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-500">Download your reports:</p>
-                    <ul className="mt-2">
-                      <li><a href="${demandAndRate}" target="_blank">Demand and Rate Report</a></li>
-                      <li><a href="${pipelineDemand}" target="_blank">FX Pipeline Demand Report</a></li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-              <button type="button" className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm" onClick={() => { modal.remove(); }}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
-
-  } catch (error) {
-    console.error('Error generating report:', error);
-    toast.error('Failed to generate Excel report.');
-  } finally {
-    toast.dismiss();
-  }
-}
 
 
 
@@ -199,6 +173,13 @@ function calculateTotalAmount(status?: 'pending' | 'approved' | 'denied') {
             <FileText className="h-5 w-5 mr-2" />
             Generate Report
           </button>
+          {modalOpen && reportLinks && (
+            <ReportDownloadModal
+              demandUrl={reportLinks.demand}
+              pipelineUrl={reportLinks.pipeline}
+              onClose={() => setModalOpen(false)}
+            />
+          )}
         </div>
       </div>
 
