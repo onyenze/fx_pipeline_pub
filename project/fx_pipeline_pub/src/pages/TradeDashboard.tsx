@@ -29,73 +29,58 @@ const [totalPages, setTotalPages] = useState(1);
 const [totalItems, setTotalItems] = useState(0); // optional
 
   // Use useCallback to memoize the fetchTransactions function
-  const fetchTransactions = useCallback(async (page = 1, pageSize = 10) => {
-  try {
-    setIsLoading(true);
+  const fetchTransactions = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      
+      // Build query parameters
+      const params: any = {};
+      if (statusFilter !== 'all') {
+        params.status = statusFilter;
+      }
 
-    // Build query parameters
-    const params: any = {
-      page,
-      pageSize,
-    };
-    if (statusFilter !== 'all') {
-      params.status = statusFilter;
-    }
+      const response = await apiClient.get('/transactions', { params });
+      
+      // Handle different response structures
+      let transactionsData = [];
+      
+      if (Array.isArray(response.data)) {
+        transactionsData = response.data;
+      } else if (Array.isArray(response.data.data)) {
+        transactionsData = response.data.data;
+      } else if (response.data.transactions) {
+        transactionsData = response.data.transactions;
+      }
 
-    const response = await apiClient.get('/transactions', { params });
-
-    // Handle response with pagination
-
-    let transactionsData: Transaction[] = [];
-
-if (Array.isArray(response.data)) {
-  transactionsData = response.data;
-} else if (Array.isArray(response.data?.data)) {
-  transactionsData = response.data.data;
-} else if (Array.isArray(response.data?.transactions)) {
-  transactionsData = response.data.transactions;
-} else {
-  transactionsData = []; // fallback to empty array
-}
-
-    const totalPages = response.data.totalPages || 1;
-    const totalItems = response.data.totalItems || 0;
-
-
-    setTransactions(transactionsData);
-    setCurrentPage(page);
-    setTotalPages(totalPages);
-    setTotalItems?.(totalItems); // optional if you use this
-
-    // Calculate amounts for dashboard cards
-    if (transactionsData.length > 0) {
-      const total = transactionsData.reduce((sum: number, t: Transaction) => sum + t.amount, 0);
-      setTotalAmount(total);
-
-      const pending = transactionsData.filter((t: Transaction) => t.status === 'pending')
-        .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
-      setPendingAmount(pending);
-
-      const approved = transactionsData.filter((t: Transaction) => t.status === 'approved')
-        .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
-      setApprovedAmount(approved);
-    } else {
+      setTransactions(transactionsData);
+      
+      // Calculate amounts for dashboard cards
+      if (transactionsData.length > 0) {
+        const total = transactionsData.reduce((sum: number, t: Transaction) => sum + t.amount, 0);
+        setTotalAmount(total);
+        
+        const pending = transactionsData.filter((t: Transaction) => t.status === 'pending').reduce((sum: number, t: Transaction) => sum + t.amount, 0);
+        setPendingAmount(pending);
+        
+        const approved = transactionsData.filter((t: Transaction) => t.status === 'approved').reduce((sum: number, t: Transaction) => sum + t.amount, 0);
+        setApprovedAmount(approved);
+      } else {
+        setTotalAmount(0);
+        setPendingAmount(0);
+        setApprovedAmount(0);
+      }
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      toast.error('Failed to fetch transactions');
+      setTransactions([]);
       setTotalAmount(0);
       setPendingAmount(0);
       setApprovedAmount(0);
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error('Error fetching transactions:', error);
-    toast.error('Failed to fetch transactions');
-    setTransactions([]);
-    setTotalAmount(0);
-    setPendingAmount(0);
-    setApprovedAmount(0);
-  } finally {
-    setIsLoading(false);
-  }
-}, [statusFilter]);
- // Add statusFilter as a dependency
+  }, [statusFilter]);
+
 
   useEffect(() => {
     fetchTransactions();
@@ -274,7 +259,7 @@ function calculateTotalAmount(status?: 'pending' | 'approved' | 'denied') {
                 ))}
               </tbody>
             </table>
-            <div className="flex items-center justify-between mt-4 px-6">
+            {/* <div className="flex items-center justify-between mt-4 px-6">
               <button
                 onClick={() => fetchTransactions(currentPage - 1)}
                 disabled={currentPage <= 1}
@@ -294,7 +279,7 @@ function calculateTotalAmount(status?: 'pending' | 'approved' | 'denied') {
               >
                 Next
               </button>
-            </div>
+            </div> */}
 
           </div>
         )}
