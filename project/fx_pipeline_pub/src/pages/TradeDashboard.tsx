@@ -28,28 +28,39 @@ export default function TradeDashboard() {
 const [totalPages, setTotalPages] = useState(1);
 const [totalItems, setTotalItems] = useState(0); // optional
 
+
   // Use useCallback to memoize the fetchTransactions function
   const fetchTransactions = useCallback(async (page = 1, pageSize = 10) => {
   try {
     setIsLoading(true);
 
-    // Build query parameters
+    // Build query parameters - FIXED: Don't duplicate params in URL and params object
     const params: any = {
       page,
-      pageSize,
+      size: pageSize, // Your API expects 'size', not 'pageSize'
     };
     if (statusFilter !== 'all') {
       params.status = statusFilter;
     }
 
-    const response = await apiClient.get(`/transactions?page=${page}&size=${pageSize}`, { params });
+    console.log('Fetching transactions with params:', params); // Debug log
+
+    // FIXED: Use either params object OR URL params, not both
+    const response = await apiClient.get('/transactions', { params });
+
+    console.log('Raw API response:', response.data); // Debug log
 
     // Handle response with pagination
     let transactionsData = [];
     let totalPages = 1;
     let totalItems = 0;
 
-    if (response.data?.data) {
+    // FIXED: Match your backend response structure
+    if (response.data?.transactions) {
+      transactionsData = response.data.transactions;
+      totalPages = response.data.totalPages ?? 1;
+      totalItems = response.data.total ?? 0; // Your API returns 'total', not 'totalItems'
+    } else if (response.data?.data) {
       transactionsData = response.data.data;
       totalPages = response.data.totalPages ?? 1;
       totalItems = response.data.totalItems ?? 0;
@@ -57,10 +68,13 @@ const [totalItems, setTotalItems] = useState(0); // optional
       transactionsData = Array.isArray(response.data) ? response.data : [];
     }
 
+    console.log('Processed transactions data:', transactionsData); // Debug log
+    console.log('Total pages:', totalPages, 'Total items:', totalItems); // Debug log
+
     setTransactions(transactionsData);
     setCurrentPage(page);
     setTotalPages(totalPages);
-    setTotalItems?.(totalItems); // optional if you use this
+    setTotalItems?.(totalItems);
 
     // Calculate amounts for dashboard cards
     if (transactionsData.length > 0) {
@@ -79,8 +93,9 @@ const [totalItems, setTotalItems] = useState(0); // optional
       setPendingAmount(0);
       setApprovedAmount(0);
     }
-  } catch (error) {
+  } catch (error:any) {
     console.error('Error fetching transactions:', error);
+    console.error('Error details:', error.response?.data); // More detailed error logging
     toast.error('Failed to fetch transactions');
     setTransactions([]);
     setTotalAmount(0);
@@ -91,11 +106,10 @@ const [totalItems, setTotalItems] = useState(0); // optional
   }
 }, [statusFilter]);
 
-
-
-  useEffect(() => {
-    fetchTransactions();
-  }, [fetchTransactions]); // Now fetchTransactions includes statusFilter as a dependency
+// FIXED: Make sure your useEffect doesn't create infinite loops
+useEffect(() => {
+  fetchTransactions(1, 10); // Explicitly pass initial values
+}, [statusFilter]); // Only depend on statusFilter, not fetchTransactions // Now fetchTransactions includes statusFilter as a dependency
 
   // Optional: If you want to add back the status update functionality using the API
   async function handleStatusUpdate(e: React.MouseEvent, transactionId: string, newStatus: 'approved' | 'denied') {
@@ -270,7 +284,7 @@ function calculateTotalAmount(status?: 'pending' | 'approved' | 'denied') {
                 ))}
               </tbody>
             </table>
-            {/* <div className="flex items-center justify-between mt-4 px-6">
+            <div className="flex items-center justify-between mt-4 px-6">
               <button
                 onClick={() => fetchTransactions(currentPage - 1)}
                 disabled={currentPage <= 1}
@@ -290,7 +304,7 @@ function calculateTotalAmount(status?: 'pending' | 'approved' | 'denied') {
               >
                 Next
               </button>
-            </div> */}
+            </div>
 
           </div>
         )}
