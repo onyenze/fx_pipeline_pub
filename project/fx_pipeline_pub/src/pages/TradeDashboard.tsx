@@ -27,103 +27,56 @@ export default function TradeDashboard() {
   const [currentPage, setCurrentPage] = useState(1);
 const [totalPages, setTotalPages] = useState(1);
 const [totalItems, setTotalItems] = useState(0); // optional
+  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'denied'>('all');
+  const [page, setPage] = useState(1);
 
 
-
-  // Use useCallback to memoize the fetchTransactions function
-  const fetchTransactions = useCallback(async (page = 1, pageSize = 10) => {
-  try {
-    setIsLoading(true);
-
-    const params: any = {
-      page,
-      size: pageSize,
-    };
-    if (statusFilter !== 'all') {
-      params.status = statusFilter;
-    }
-
-    console.log('Fetching transactions with params:', params);
-
-    const response = await apiClient.get('/transactions', { params });
-
-    console.log('Raw API response:', response.data);
-
-    // FIXED: Always ensure we get an array
-    let transactionsData: Transaction[] = [];
-    let totalPages = 1;
-    let totalItems = 0;
-
-    // Handle different response structures
-    if (response.data?.transactions && Array.isArray(response.data.transactions)) {
-      transactionsData = response.data.transactions;
-      totalPages = response.data.totalPages ?? 1;
-      totalItems = response.data.total ?? 0;
-    } else if (response.data?.data && Array.isArray(response.data.data)) {
-      transactionsData = response.data.data;
-      totalPages = response.data.totalPages ?? 1;
-      totalItems = response.data.totalItems ?? 0;
-    } else if (Array.isArray(response.data)) {
-      transactionsData = response.data;
-    } else {
-      console.warn('Unexpected response structure:', response.data);
-      transactionsData = []; // Fallback to empty array
-    }
-
-    console.log('Processed transactions data:', transactionsData);
-    console.log('Is array:', Array.isArray(transactionsData));
-
-    // FIXED: Always set an array, even if empty
-    setTransactions(transactionsData);
-    setCurrentPage(page);
-    setTotalPages(totalPages);
-    setTotalItems?.(totalItems);
-
-    // Calculate amounts for dashboard cards
-    if (Array.isArray(transactionsData) && transactionsData.length > 0) {
-      const total = transactionsData.reduce((sum: number, t: Transaction) => {
-        return sum + (typeof t.amount === 'number' ? t.amount : 0);
-      }, 0);
-      setTotalAmount(total);
-
-      const pending = transactionsData
-        .filter((t: Transaction) => t.status === 'pending')
-        .reduce((sum: number, t: Transaction) => {
-          return sum + (typeof t.amount === 'number' ? t.amount : 0);
-        }, 0);
-      setPendingAmount(pending);
-
-      const approved = transactionsData
-        .filter((t: Transaction) => t.status === 'approved')
-        .reduce((sum: number, t: Transaction) => {
-          return sum + (typeof t.amount === 'number' ? t.amount : 0);
-        }, 0);
-      setApprovedAmount(approved);
-    } else {
-      setTotalAmount(0);
-      setPendingAmount(0);
-      setApprovedAmount(0);
-    }
-  } catch (error:any) {
-    console.error('Error fetching transactions:', error);
-    console.error('Error details:', error.response?.data);
-    toast.error('Failed to fetch transactions');
-    
-    // FIXED: Always set an empty array on error
-    setTransactions([]);
-    setTotalAmount(0);
-    setPendingAmount(0);
-    setApprovedAmount(0);
-  } finally {
-    setIsLoading(false);
-  }
-}, [statusFilter]);
-
-// FIXED: Make sure your useEffect doesn't create infinite loops
 useEffect(() => {
-  fetchTransactions(1, 10); // Explicitly pass initial values
-}, [statusFilter]); // Only depend on statusFilter, not fetchTransactions // Now fetchTransactions includes statusFilter as a dependency
+    fetchTransactions();
+  }, []);
+  // Use useCallback to memoize the fetchTransactions function
+    async function fetchTransactions(currentPage = 1) {
+    try {
+      setIsLoading(true);
+  
+      const response = await apiClient.get(`/transactions?page=${currentPage}&size=10`);
+  
+      const data = response.data.data || response.data;
+  
+      if (Array.isArray(data)) {
+        setTransactions(data);
+      } else if (Array.isArray(data.transactions)) {
+        setTransactions(data.transactions);
+        setTotalPages(data.totalPages || 1);
+      } else {
+        setTransactions([]);
+      }
+  
+      setPage(currentPage);
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      toast.error('Failed to load transactions');
+      setTransactions([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
+ // Format amount with thousand separators
+  function formatAmount(amount: number): string {
+  return '$' + amount.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+function calculateTotalAmount(status?: 'pending' | 'approved' | 'denied') {
+  const total = transactions
+    .filter(t => !status || t.status === status)
+    .reduce((sum, transaction) => sum + Number(transaction.amount), 0);
+  
+  return formatAmount(total);
+}
   // Optional: If you want to add back the status update functionality using the API
   async function handleStatusUpdate(e: React.MouseEvent, transactionId: string, newStatus: 'approved' | 'denied') {
     // Prevent the click from propagating to the row and navigating
@@ -147,43 +100,6 @@ useEffect(() => {
     navigate(`/transactions/${transactionId}`);
   }
 
-  function formatAmount(amount: number): string {
-  return '$' + amount.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-}
-
-// FIXED: Always ensure transactions is an array before filtering
-const calculateTotalAmount = (status?: string) => {
-  // Guard clause: ensure transactions is an array
-  if (!Array.isArray(transactions)) {
-    console.warn('Transactions is not an array:', transactions);
-    return '$0';
-  }
-
-  if (!status) {
-    // Total amount
-    const total = transactions.reduce((sum: number, t: Transaction) => sum + (t.amount || 0), 0);
-    return `$${total.toLocaleString('en-US')}`;
-  }
-  
-  if (status === 'pending') {
-    const pending = transactions
-      .filter((t: Transaction) => t.status === 'pending')
-      .reduce((sum: number, t: Transaction) => sum + (t.amount || 0), 0);
-    return `$${pending.toLocaleString('en-US')}`;
-  }
-  
-  if (status === 'approved') {
-    const approved = transactions
-      .filter((t: Transaction) => t.status === 'approved')
-      .reduce((sum: number, t: Transaction) => sum + (t.amount || 0), 0);
-    return `$${approved.toLocaleString('en-US')}`;
-  }
-  
-  return '$0';
-};
 
   // Type-safe onChange handler for the select
   const handleStatusFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -222,21 +138,32 @@ const calculateTotalAmount = (status?: string) => {
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-100">
-          <h2 className="text-xl font-semibold text-gray-800">Transactions</h2>
-          <div className="flex gap-2">
-            <select
-              value={statusFilter}
-              onChange={handleStatusFilterChange}
-              className="rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
+        <div className="flex gap-2">
+            <button 
+              onClick={() => setFilter('all')}
+              className={`px-3 py-1 rounded-md ${filter === 'all' ? 'bg-red-100 text-red-800' : 'bg-gray-200 text-gray-600'}`}
             >
-              <option value="all">All</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="denied">Denied</option>
-            </select>
+              All
+            </button>
+            <button 
+              onClick={() => setFilter('pending')}
+              className={`px-3 py-1 rounded-md ${filter === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-200 text-gray-600'}`}
+            >
+              Pending
+            </button>
+            <button 
+              onClick={() => setFilter('approved')}
+              className={`px-3 py-1 rounded-md ${filter === 'approved' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}`}
+            >
+              Approved
+            </button>
+            <button 
+              onClick={() => setFilter('denied')}
+              className={`px-3 py-1 rounded-md ${filter === 'denied' ? 'bg-red-100 text-red-800' : 'bg-gray-200 text-gray-600'}`}
+            >
+              Denied
+            </button>
           </div>
-        </div>
         
         {isLoading ? (
           <div className="p-6 text-center text-gray-500">
@@ -320,23 +247,24 @@ const calculateTotalAmount = (status?: string) => {
                 ))}
               </tbody>
             </table>
+            {/* Pagination Controls */}
             <div className="flex items-center justify-between mt-4 px-6">
               <button
-                onClick={() => fetchTransactions(currentPage - 1)}
-                disabled={currentPage <= 1}
-                className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
+                onClick={() => fetchTransactions(page - 1)}
+                disabled={page <= 1}
+                className="px-4 py-2 bg-gray-200 text-sm font-medium rounded disabled:opacity-50"
               >
                 Previous
               </button>
 
               <span className="text-sm text-gray-600">
-                Page {currentPage} of {totalPages}
+                Page {page} of {totalPages}
               </span>
 
               <button
-                onClick={() => fetchTransactions(currentPage + 1)}
-                disabled={currentPage >= totalPages}
-                className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
+                onClick={() => fetchTransactions(page + 1)}
+                disabled={page >= totalPages}
+                className="px-4 py-2 bg-gray-200 text-sm font-medium rounded disabled:opacity-50"
               >
                 Next
               </button>
