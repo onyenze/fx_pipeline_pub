@@ -79,7 +79,7 @@ export default function TreasuryDashboard() {
   }
   
 
-  
+
  async function generateExcelReport() {
   try {
     const indicativeBuying = prompt('Enter INDICATIVE BUYING rate:');
@@ -120,7 +120,7 @@ export default function TreasuryDashboard() {
     <a href={demandAndRate} target="_blank" className="underline text-blue-500">Download Demand & Rate</a><br />
     <a href={pipelineDemand} target="_blank" className="underline text-blue-500">Download FX Pipeline</a>
   </span>,
-  // { duration: 10000 }
+  { autoClose: 10000 }
 );
 
   } catch (error) {
