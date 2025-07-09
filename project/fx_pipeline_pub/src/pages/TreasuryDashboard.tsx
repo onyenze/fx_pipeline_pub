@@ -30,6 +30,8 @@ export default function TreasuryDashboard() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [reportLinks, setReportLinks] = useState<{ demand: string; pipeline: string } | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
 
   useEffect(() => {
@@ -45,26 +47,28 @@ export default function TreasuryDashboard() {
     }
   }
 
-  async function fetchTransactions() {
+  async function fetchTransactions(currentPage = 1) {
   try {
-    const response = await apiClient.get('/transactions');
-    
-    // Handle different response structures
-    let transactionsData = [];
-    
-    if (Array.isArray(response.data)) {
-      transactionsData = response.data;
-    } else if (Array.isArray(response.data.data)) {
-      transactionsData = response.data.data;
-    } else if (response.data.transactions) {
-      transactionsData = response.data.transactions;
+    setIsLoading(true);
+
+    const response = await apiClient.get(`/transactions?page=${currentPage}&size=10`);
+
+    const data = response.data.data || response.data;
+
+    if (Array.isArray(data)) {
+      setTransactions(data);
+    } else if (Array.isArray(data.transactions)) {
+      setTransactions(data.transactions);
+      setTotalPages(data.totalPages || 1);
+    } else {
+      setTransactions([]);
     }
-    
-    setTransactions(transactionsData);
+
+    setPage(currentPage);
   } catch (error) {
     console.error('Error fetching transactions:', error);
     toast.error('Failed to load transactions');
-    setTransactions([]); // Set to empty array on error
+    setTransactions([]);
   } finally {
     setIsLoading(false);
   }
@@ -284,6 +288,28 @@ function calculateTotalAmount(status?: 'pending' | 'approved' | 'denied') {
                 ))}
               </tbody>
             </table>
+            {/* Pagination Controls */}
+            <div className="flex items-center justify-between mt-4 px-6">
+              <button
+                onClick={() => fetchTransactions(page - 1)}
+                disabled={page <= 1}
+                className="px-4 py-2 bg-gray-200 text-sm font-medium rounded disabled:opacity-50"
+              >
+                Previous
+              </button>
+
+              <span className="text-sm text-gray-600">
+                Page {page} of {totalPages}
+              </span>
+
+              <button
+                onClick={() => fetchTransactions(page + 1)}
+                disabled={page >= totalPages}
+                className="px-4 py-2 bg-gray-200 text-sm font-medium rounded disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
           </div>
         )}
       </div>
