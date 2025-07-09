@@ -46,9 +46,6 @@ const [totalItems, setTotalItems] = useState(0); // optional
 
     // Handle response with pagination
 
-    let totalPages = 1;
-    let totalItems = 0;
-
     let transactionsData: Transaction[] = [];
 
 if (Array.isArray(response.data)) {
@@ -60,6 +57,9 @@ if (Array.isArray(response.data)) {
 } else {
   transactionsData = []; // fallback to empty array
 }
+
+    const totalPages = response.data.totalPages || 1;
+    const totalItems = response.data.totalItems || 0;
 
 
     setTransactions(transactionsData);
