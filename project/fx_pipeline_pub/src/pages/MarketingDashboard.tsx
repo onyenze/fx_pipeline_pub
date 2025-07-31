@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../lib/auth';
-import { PlusCircle, Upload, ArrowRightCircle } from 'lucide-react';
+import { PlusCircle, Upload, ArrowRightCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/client';
@@ -39,6 +39,12 @@ export default function MarketingDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10); // You can make this configurable
+  const [totalTransactions, setTotalTransactions] = useState(0);
+  
   const [newTransaction, setNewTransaction] = useState({
     amount: '',
     description: '',
@@ -76,32 +82,39 @@ export default function MarketingDashboard() {
 
   useEffect(() => {
     fetchTransactions();
-  }, []);
+  }, [currentPage]); // Re-fetch when page changes
 
   async function fetchTransactions() {
-  try {
-    const response = await apiClient.get('/transactions');
-    
-    // Handle different response structures
-    let transactionsData = [];
-    
-    if (Array.isArray(response.data)) {
-      transactionsData = response.data;
-    } else if (Array.isArray(response.data.data)) {
-      transactionsData = response.data.data;
-    } else if (response.data.transactions) {
-      transactionsData = response.data.transactions;
+    try {
+      setIsLoading(true);
+      const response = await apiClient.get(`/transactions?page=${currentPage}&limit=${itemsPerPage}`);
+      
+      // Handle different response structures
+      let transactionsData = [];
+      let total = 0;
+      
+      if (Array.isArray(response.data)) {
+        transactionsData = response.data;
+        total = response.data.length;
+      } else if (Array.isArray(response.data.data)) {
+        transactionsData = response.data.data;
+        total = response.data.total || response.data.data.length;
+      } else if (response.data.transactions) {
+        transactionsData = response.data.transactions;
+        total = response.data.total || response.data.transactions.length;
+      }
+      
+      setTransactions(transactionsData);
+      setTotalTransactions(total);
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      toast.error('Failed to load transactions');
+      setTransactions([]); // Set to empty array on error
+      setTotalTransactions(0);
+    } finally {
+      setIsLoading(false);
     }
-    
-    setTransactions(transactionsData);
-  } catch (error) {
-    console.error('Error fetching transactions:', error);
-    toast.error('Failed to load transactions');
-    setTransactions([]); // Set to empty array on error
-  } finally {
-    setIsLoading(false);
   }
-}
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -148,6 +161,9 @@ export default function MarketingDashboard() {
         purpose: ''
       });
       setFiles([]);
+      
+      // Reset to first page and fetch transactions
+      setCurrentPage(1);
       fetchTransactions();
     } catch (error) {
       toast.error('Failed to create transaction');
@@ -168,6 +184,56 @@ export default function MarketingDashboard() {
     setFiles(prevFiles => prevFiles.filter((_, i) => i !== index));
   }
 
+  // Pagination calculations
+  const totalPages = Math.ceil(totalTransactions / itemsPerPage);
+  const startItem = (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalTransactions);
+
+  // Pagination handlers
+  const goToPage = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      let startPage = Math.max(1, currentPage - 2);
+      let endPage = Math.min(totalPages, currentPage + 2);
+      
+      if (currentPage <= 3) {
+        endPage = Math.min(totalPages, 5);
+      } else if (currentPage >= totalPages - 2) {
+        startPage = Math.max(1, totalPages - 4);
+      }
+      
+      for (let i = startPage; i <= endPage; i++) {
+        pages.push(i);
+      }
+    }
+    
+    return pages;
+  };
 
   // Format number with commas for thousands
   const formatNumber = (value: number | string) => {
@@ -529,8 +595,13 @@ export default function MarketingDashboard() {
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden border-t-4 border-gray-500">
-        <div className="px-6 py-4 border-b border-gray-200 bg-gray-100">
+        <div className="px-6 py-4 border-b border-gray-200 bg-gray-100 flex justify-between items-center">
           <h2 className="text-xl font-semibold text-gray-800">Recent Transactions</h2>
+          {totalTransactions > 0 && (
+            <p className="text-sm text-gray-600">
+              Showing {startItem}-{endItem} of {totalTransactions} transactions
+            </p>
+          )}
         </div>
         {isLoading ? (
           <div className="p-6 text-center text-gray-500">
@@ -540,61 +611,147 @@ export default function MarketingDashboard() {
         ) : transactions.length === 0 ? (
           <div className="p-6 text-center text-gray-500">No transactions found</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Customer Details</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Loan Information</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Created</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {transactions.map((transaction) => (
-                  <tr 
-                    key={transaction.id} 
-                    onClick={() => navigateToTransactionDetails(transaction.id)}
-                    className="cursor-pointer hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{transaction.customer_name}</div>
-                      <div className="text-sm text-gray-500">{transaction.contact_name}</div>
-                      <div className="text-sm text-gray-500">{transaction.contact_number}</div>
-                      {/* Display customer address if available */}
-                      {transaction.customer_address && (
-                        <div className="text-sm text-gray-500">{transaction.customer_address}</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">Amount: ${transaction.amount.toLocaleString('en-US')}</div>
-                      <div className="text-sm text-gray-500">Purpose: {transaction.purpose}</div>
-                      <div className="text-sm text-gray-500">Sector: {transaction.sector}</div>
-                      {/* Display tenor if available */}
-                      {transaction.tenor && (
-                        <div className="text-sm text-gray-500">tenor: {transaction.tenor} days</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        transaction.status === 'approved' ? 'bg-green-100 text-green-800' :
-                        transaction.status === 'denied' ? 'bg-red-100 text-red-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {transaction.status}
-                      </span>
-                      <div className="text-xs text-gray-500 mt-1">
-                        Funding: {transaction.funding_status}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(transaction.created_at).toLocaleDateString()}
-                    </td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Customer Details</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Loan Information</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Created</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {transactions.map((transaction) => (
+                    <tr 
+                      key={transaction.id} 
+                      onClick={() => navigateToTransactionDetails(transaction.id)}
+                      className="cursor-pointer hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{transaction.customer_name}</div>
+                        <div className="text-sm text-gray-500">{transaction.contact_name}</div>
+                        <div className="text-sm text-gray-500">{transaction.contact_number}</div>
+                        {/* Display customer address if available */}
+                        {transaction.customer_address && (
+                          <div className="text-sm text-gray-500">{transaction.customer_address}</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">Amount: {transaction.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        <div className="text-sm text-gray-500">Purpose: {transaction.purpose}</div>
+                        <div className="text-sm text-gray-500">Sector: {transaction.sector}</div>
+                        {/* Display tenor if available */}
+                        {transaction.tenor && (
+                          <div className="text-sm text-gray-500">tenor: {transaction.tenor} days</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          transaction.status === 'approved' ? 'bg-green-100 text-green-800' :
+                          transaction.status === 'denied' ? 'bg-red-100 text-red-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {transaction.status}
+                        </span>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Funding: {transaction.funding_status}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(transaction.created_at).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center text-sm text-gray-700">
+                    <span>
+                      Showing <span className="font-medium">{startItem}</span> to{' '}
+                      <span className="font-medium">{endItem}</span> of{' '}
+                      <span className="font-medium">{totalTransactions}</span> results
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    {/* Previous button */}
+                    <button
+                      onClick={goToPreviousPage}
+                      disabled={currentPage === 1}
+                      className={`relative inline-flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                        currentPage === 1
+                          ? 'text-gray-400 cursor-not-allowed'
+                          : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                      } border border-gray-300 bg-white`}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </button>
+                    
+                    {/* Page numbers */}
+                    <div className="flex items-center space-x-1">
+                      {getPageNumbers().map((pageNum) => (
+                        <button
+                          key={pageNum}
+                          onClick={() => goToPage(pageNum)}
+                          className={`relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-md ${
+                            currentPage === pageNum
+                              ? 'bg-red-600 text-white border-red-600'
+                              : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50 hover:text-gray-900'
+                          } border`}
+                        >
+                          {pageNum}
+                        </button>
+                      ))}
+                    </div>
+                    
+                    {/* Next button */}
+                    <button
+                      onClick={goToNextPage}
+                      disabled={currentPage === totalPages}
+                      className={`relative inline-flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                        currentPage === totalPages
+                          ? 'text-gray-400 cursor-not-allowed'
+                          : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                      } border border-gray-300 bg-white`}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Items per page selector (optional) */}
+                <div className="mt-4 flex items-center justify-center">
+                  <label className="text-sm text-gray-700 mr-2">Items per page:</label>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      const newItemsPerPage = parseInt(e.target.value);
+                      setCurrentPage(1); // Reset to first page
+                      // You would need to make itemsPerPage a state variable to use this
+                      // For now, it's commented out since itemsPerPage is const
+                      // setItemsPerPage(newItemsPerPage);
+                    }}
+                    className="text-sm border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
+                    disabled // Remove this when you make itemsPerPage dynamic
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
