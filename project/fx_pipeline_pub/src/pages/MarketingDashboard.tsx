@@ -39,10 +39,10 @@ export default function MarketingDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10); // You can make this configurable
   const [totalTransactions, setTotalTransactions] = useState(0);
   
   const [newTransaction, setNewTransaction] = useState({
@@ -491,16 +491,24 @@ export default function MarketingDashboard() {
             {/* New tenor field */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Tenor (Days)</label>
-              <select
+              <input
                 required
+                type="number"
                 value={newTransaction.tenor}
-                onChange={(e) => setNewTransaction(prev => ({ ...prev, tenor: e.target.value }))}
+                onChange={(e) =>
+                  setNewTransaction((prev) => ({ ...prev, tenor: e.target.value }))
+                }
+                list="tenorOptions"
                 className="mt-1 focus:ring-red-500 focus:border-red-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md py-3"
-              >
+                placeholder="Enter or select tenor"
+              />
+              <datalist id="tenorOptions">
                 {tenorOptions.map((days) => (
-                  <option key={days} value={days}>{days} days</option>
+                  <option key={days} value={days}>
+                    {days}
+                  </option>
                 ))}
-              </select>
+              </datalist>
             </div>
           </div>
           
@@ -645,7 +653,10 @@ export default function MarketingDashboard() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">Amount: ${formatAmount(transaction.amount)} </div>
+                        <div className="text-sm text-gray-900">Amount: ${Number(transaction.amount).toLocaleString("en-US", {
+                                    minimumFractionDigits: 2,
+                                  })}
+                        </div>
                         <div className="text-sm text-gray-500">Purpose: {transaction.purpose}</div>
                         <div className="text-sm text-gray-500">Sector: {transaction.sector}</div>
                         {/* Display tenor if available */}
@@ -744,7 +755,7 @@ export default function MarketingDashboard() {
                       setCurrentPage(1); // Reset to first page
                       // You would need to make itemsPerPage a state variable to use this
                       // For now, it's commented out since itemsPerPage is const
-                      // setItemsPerPage(newItemsPerPage);
+                      setItemsPerPage(newItemsPerPage);
                     }}
                     className="text-sm border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
                     disabled // Remove this when you make itemsPerPage dynamic
