@@ -582,7 +582,7 @@ export default function MarketingDashboard() {
                   </label>
                   <p className="pl-1">or drag and drop</p>
                 </div>
-                <p className="text-xs text-gray-500">Any file up to 10MB</p>
+                <p className="text-xs text-gray-500">Any file up to 30MB</p>
               </div>
             </div>
             
