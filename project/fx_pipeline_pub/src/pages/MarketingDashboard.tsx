@@ -115,6 +115,12 @@ export default function MarketingDashboard() {
       setIsLoading(false);
     }
   }
+  function formatAmount(amount: number): string {
+  return '$' + amount.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -639,7 +645,7 @@ export default function MarketingDashboard() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">Amount: {transaction.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        <div className="text-sm text-gray-900">Amount: ${formatAmount(transaction.amount)} </div>
                         <div className="text-sm text-gray-500">Purpose: {transaction.purpose}</div>
                         <div className="text-sm text-gray-500">Sector: {transaction.sector}</div>
                         {/* Display tenor if available */}
