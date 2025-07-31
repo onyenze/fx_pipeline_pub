@@ -299,7 +299,9 @@ export default function MarketingDashboard() {
                   required
                   step="0.01"
                   value={newTransaction.amount}
-                  onChange={(e) => setNewTransaction(prev => ({ ...prev, amount: e.target.value }))}
+                  onChange={(e) => {
+                    setNewTransaction(prev => ({ ...prev, amount: e.target.value }))
+                  }}
                   className="focus:ring-red-500 focus:border-red-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md py-3"
                   placeholder="0.00"
                 />
@@ -312,7 +314,15 @@ export default function MarketingDashboard() {
                 type="text"
                 required
                 value={newTransaction.customer_name}
-                onChange={(e) => setNewTransaction(prev => ({ ...prev, customer_name: e.target.value }))}
+                onChange={(e) => {
+                  const input = e.target.value;
+                  const capitalized =
+                    input.charAt(0).toUpperCase() + input.slice(1);
+                  setNewTransaction(prev => ({
+                    ...prev,
+                    customer_name: capitalized
+                  }));
+                }}
                 className="mt-1 focus:ring-red-500 focus:border-red-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md py-3"
                 placeholder="Enter customer name"
               />
@@ -325,7 +335,12 @@ export default function MarketingDashboard() {
                 type="text"
                 required
                 value={newTransaction.customer_address}
-                onChange={(e) => setNewTransaction(prev => ({ ...prev, customer_address: e.target.value }))}
+                onChange={(e) => {
+                  const input = e.target.value;
+                  const capitalized =
+                    input.charAt(0).toUpperCase() + input.slice(1);
+                  setNewTransaction(prev => ({ ...prev, customer_address: capitalized }))
+              }}
                 className="mt-1 focus:ring-red-500 focus:border-red-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md py-3"
                 placeholder="Enter customer address"
               />
@@ -353,7 +368,12 @@ export default function MarketingDashboard() {
                 type="text"
                 required
                 value={newTransaction.nature_of_business}
-                onChange={(e) => setNewTransaction(prev => ({ ...prev, nature_of_business: e.target.value }))}
+                onChange={(e) => {
+                  const input = e.target.value;
+                  const capitalized =
+                    input.charAt(0).toUpperCase() + input.slice(1);
+                  setNewTransaction(prev => ({ ...prev, nature_of_business: capitalized }))
+                }}
                 className="mt-1 focus:ring-red-500 focus:border-red-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md py-3"
                 placeholder="Describe business nature"
               />
@@ -366,7 +386,12 @@ export default function MarketingDashboard() {
                 type="text"
                 required
                 value={newTransaction.contact_name}
-                onChange={(e) => setNewTransaction(prev => ({ ...prev, contact_name: e.target.value }))}
+                onChange={(e) => {
+                  const input = e.target.value;
+                  const capitalized =
+                    input.charAt(0).toUpperCase() + input.slice(1);
+                  setNewTransaction(prev => ({ ...prev, contact_name: capitalized }))
+                }}
                 className="mt-1 focus:ring-red-500 focus:border-red-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md py-3"
                 placeholder="Primary contact name"
               />
