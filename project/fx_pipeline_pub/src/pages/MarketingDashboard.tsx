@@ -73,7 +73,7 @@ export default function MarketingDashboard() {
   }
   
   // Options for dropdown selectors
-  const sectorOptions = ['Agriculture', 'Manufacturing', 'Services', 'Technology', 'Retail', 'Construction', 'Other'];
+  const sectorOptions = ['BOND SALE', 'BOND COUPON', 'BOND MATURITY', 'COMMERCE', 'ENERGY', 'MANUFACTURING', 'FMCG','AGRICULTURE FORESTRY & FISHING', 'SERVICE', 'TRANSPORT', 'TELECOM', 'EDUCATION', 'CONSTRUCTION', 'DIVIDEND', 'MINING', 'AUTOMOBILE', 'PHARMACEUTICALS', 'MISCELLANEOUS'];
   const documentationTypes = ['Formal', 'Informal', 'Semi-Formal', 'None'];
   const fundingStatusOptions = ['Pending', 'Funded', 'Rejected', 'On Hold'];
   const tenorOptions = [2, 7]; // New options for tenor
@@ -84,6 +84,18 @@ export default function MarketingDashboard() {
     fetchTransactions();
   }, [currentPage]); // Re-fetch when page changes
 
+const formatNumberInput = (value: string) => {
+  const rawValue = value.replace(/,/g, ''); // Remove commas
+  if (!isNaN(Number(rawValue)) || rawValue === '') {
+    const parts = rawValue.split('.');
+    const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const decimalPart = parts[1] ? `.${parts[1]}` : '';
+    return `${integerPart}${decimalPart}`;
+  }
+  return value;
+};
+
+  
   async function fetchTransactions() {
     try {
       setIsLoading(true);
@@ -295,12 +307,19 @@ export default function MarketingDashboard() {
                   <span className="text-gray-500 sm:text-sm">$</span>
                 </div>
                 <input
-                  type="number"
+                  type="text"
                   required
-                  step="0.01"
+                  inputMode="decimal"
                   value={newTransaction.amount}
                   onChange={(e) => {
-                    setNewTransaction(prev => ({ ...prev, amount: e.target.value }))
+                    const rawValue = e.target.value.replace(/,/g, ''); // remove commas
+                    if (!isNaN(Number(rawValue)) || rawValue === '') {
+                      const parts = rawValue.split('.');
+                      const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                      const decimalPart = parts[1] ? `.${parts[1]}` : '';
+                      const formatted = `${integerPart}${decimalPart}`;
+                      setNewTransaction(prev => ({ ...prev, amount: formatted }));
+                    }
                   }}
                   className="focus:ring-red-500 focus:border-red-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md py-3"
                   placeholder="0.00"
@@ -316,8 +335,7 @@ export default function MarketingDashboard() {
                 value={newTransaction.customer_name}
                 onChange={(e) => {
                   const input = e.target.value;
-                  const capitalized =
-                    input.charAt(0).toUpperCase() + input.slice(1);
+                  const capitalized = input.toUpperCase();
                   setNewTransaction(prev => ({
                     ...prev,
                     customer_name: capitalized
@@ -337,8 +355,7 @@ export default function MarketingDashboard() {
                 value={newTransaction.customer_address}
                 onChange={(e) => {
                   const input = e.target.value;
-                  const capitalized =
-                    input.charAt(0).toUpperCase() + input.slice(1);
+                  const capitalized = input.toUpperCase();
                   setNewTransaction(prev => ({ ...prev, customer_address: capitalized }))
               }}
                 className="mt-1 focus:ring-red-500 focus:border-red-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md py-3"
@@ -370,8 +387,7 @@ export default function MarketingDashboard() {
                 value={newTransaction.nature_of_business}
                 onChange={(e) => {
                   const input = e.target.value;
-                  const capitalized =
-                    input.charAt(0).toUpperCase() + input.slice(1);
+                  const capitalized = input.toUpperCase();
                   setNewTransaction(prev => ({ ...prev, nature_of_business: capitalized }))
                 }}
                 className="mt-1 focus:ring-red-500 focus:border-red-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md py-3"
@@ -388,8 +404,7 @@ export default function MarketingDashboard() {
                 value={newTransaction.contact_name}
                 onChange={(e) => {
                   const input = e.target.value;
-                  const capitalized =
-                    input.charAt(0).toUpperCase() + input.slice(1);
+                  const capitalized = input.toUpperCase();
                   setNewTransaction(prev => ({ ...prev, contact_name: capitalized }))
                 }}
                 className="mt-1 focus:ring-red-500 focus:border-red-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md py-3"
@@ -417,11 +432,14 @@ export default function MarketingDashboard() {
                   <span className="text-gray-500 sm:text-sm">$</span>
                 </div>
                 <input
-                  type="number"
+                  type="text"
                   required
-                  step="0.01"
+                  inputMode="decimal"
                   value={newTransaction.amount_requested}
-                  onChange={(e) => setNewTransaction(prev => ({ ...prev, amount_requested: e.target.value }))}
+                  onChange={(e) => {
+                    const formatted = formatNumberInput(e.target.value);
+                    setNewTransaction(prev => ({ ...prev, amount_requested: formatted }));
+                  }}
                   className="focus:ring-red-500 focus:border-red-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md py-3"
                   placeholder="0.00"
                 />
@@ -435,11 +453,14 @@ export default function MarketingDashboard() {
                   <span className="text-gray-500 sm:text-sm">₵</span>
                 </div>
                 <input
-                  type="number"
+                  type="text"
                   required
-                  step="0.01"
+                  inputMode="decimal"
                   value={newTransaction.cedi_balance}
-                  onChange={(e) => setNewTransaction(prev => ({ ...prev, cedi_balance: e.target.value }))}
+                  onChange={(e) => {
+                    const formatted = formatNumberInput(e.target.value);
+                    setNewTransaction(prev => ({ ...prev, cedi_balance: formatted }));
+                  }}
                   className="focus:ring-red-500 focus:border-red-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md py-3"
                   placeholder="0.00"
                 />
@@ -453,11 +474,14 @@ export default function MarketingDashboard() {
                   <span className="text-gray-500 sm:text-sm">$</span>
                 </div>
                 <input
-                  type="number"
+                  type="text"
                   required
-                  step="0.01"
+                  inputMode="decimal"
                   value={newTransaction.loan_limit}
-                  onChange={(e) => setNewTransaction(prev => ({ ...prev, loan_limit: e.target.value }))}
+                  onChange={(e) => {
+                    const formatted = formatNumberInput(e.target.value);
+                    setNewTransaction(prev => ({ ...prev, loan_limit: formatted }));
+                  }}
                   className="focus:ring-red-500 focus:border-red-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md py-3"
                   placeholder="0.00"
                 />
@@ -471,14 +495,18 @@ export default function MarketingDashboard() {
                   <span className="text-gray-500 sm:text-sm">$</span>
                 </div>
                 <input
-                  type="number"
+                  type="text"
                   required
-                  step="0.01"
+                  inputMode="decimal"
                   value={newTransaction.loan_balance}
-                  onChange={(e) => setNewTransaction(prev => ({ ...prev, loan_balance: e.target.value }))}
+                  onChange={(e) => {
+                    const formatted = formatNumberInput(e.target.value);
+                    setNewTransaction(prev => ({ ...prev, loan_balance: formatted }));
+                  }}
                   className="focus:ring-red-500 focus:border-red-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md py-3"
                   placeholder="0.00"
                 />
+
               </div>
             </div>
             
@@ -543,7 +571,10 @@ export default function MarketingDashboard() {
             <textarea
               required
               value={newTransaction.purpose}
-              onChange={(e) => setNewTransaction(prev => ({ ...prev, purpose: e.target.value }))}
+              onChange={(e) => {
+                const input = e.target.value;
+                const capitalized = input.toUpperCase();
+                setNewTransaction(prev => ({ ...prev, purpose: capitalized }))}}
               className="mt-1 focus:ring-red-500 focus:border-red-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
               rows={3}
               placeholder="Describe the purpose of this transaction"
