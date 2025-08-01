@@ -252,7 +252,15 @@ const formatNumberInput = (value: string) => {
     
     return pages;
   };
-
+// Create this handler function in your component
+const handleNumberInput = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+  const inputValue = e.target.value;
+  const rawValue = inputValue.replace(/,/g, '');
+  
+  if (!isNaN(Number(rawValue)) || rawValue === '') {
+    setNewTransaction(prev => ({ ...prev, [field]: rawValue }));
+  }
+};
   // Format number with commas for thousands
   const formatNumber = (value: number | string) => {
     if (!value) return "0.00";
@@ -309,18 +317,8 @@ const formatNumberInput = (value: string) => {
                 <input
                   type="text"
                   required
-                  inputMode="decimal"
-                  value={newTransaction.amount}
-                  onChange={(e) => {
-                    const rawValue = e.target.value.replace(/,/g, ''); // remove commas
-                    if (!isNaN(Number(rawValue)) || rawValue === '') {
-                      const parts = rawValue.split('.');
-                      const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-                      const decimalPart = parts[1] ? `.${parts[1]}` : '';
-                      const formatted = `${integerPart}${decimalPart}`;
-                      setNewTransaction(prev => ({ ...prev, amount: formatted }));
-                    }
-                  }}
+                  value={formatNumberInput(newTransaction.amount)}
+                  onChange={handleNumberInput('amount')}
                   className="focus:ring-red-500 focus:border-red-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md py-3"
                   placeholder="0.00"
                 />
@@ -433,13 +431,8 @@ const formatNumberInput = (value: string) => {
                 </div>
                 <input
                   type="text"
-                  required
-                  inputMode="decimal"
-                  value={newTransaction.amount_requested}
-                  onChange={(e) => {
-                    const formatted = formatNumberInput(e.target.value);
-                    setNewTransaction(prev => ({ ...prev, amount_requested: formatted }));
-                  }}
+                  value={formatNumberInput(newTransaction.amount_requested)}
+                  onChange={handleNumberInput('amount_requested')}
                   className="focus:ring-red-500 focus:border-red-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md py-3"
                   placeholder="0.00"
                 />
@@ -455,7 +448,6 @@ const formatNumberInput = (value: string) => {
                 <input
                   type="text"
                   required
-                  inputMode="decimal"
                   value={newTransaction.cedi_balance}
                   onChange={(e) => {
                     const formatted = formatNumberInput(e.target.value);
@@ -475,13 +467,8 @@ const formatNumberInput = (value: string) => {
                 </div>
                 <input
                   type="text"
-                  required
-                  inputMode="decimal"
-                  value={newTransaction.loan_limit}
-                  onChange={(e) => {
-                    const formatted = formatNumberInput(e.target.value);
-                    setNewTransaction(prev => ({ ...prev, loan_limit: formatted }));
-                  }}
+                  value={formatNumberInput(newTransaction.loan_limit)}
+                  onChange={handleNumberInput('loan_limit')}
                   className="focus:ring-red-500 focus:border-red-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md py-3"
                   placeholder="0.00"
                 />
@@ -496,13 +483,8 @@ const formatNumberInput = (value: string) => {
                 </div>
                 <input
                   type="text"
-                  required
-                  inputMode="decimal"
-                  value={newTransaction.loan_balance}
-                  onChange={(e) => {
-                    const formatted = formatNumberInput(e.target.value);
-                    setNewTransaction(prev => ({ ...prev, loan_balance: formatted }));
-                  }}
+                  value={formatNumberInput(newTransaction.loan_balance)}
+                  onChange={handleNumberInput('loan_balance')}
                   className="focus:ring-red-500 focus:border-red-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md py-3"
                   placeholder="0.00"
                 />
