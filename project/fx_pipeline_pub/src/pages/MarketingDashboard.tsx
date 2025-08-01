@@ -447,12 +447,8 @@ const handleNumberInput = (field: string) => (e: React.ChangeEvent<HTMLInputElem
                 </div>
                 <input
                   type="text"
-                  required
-                  value={newTransaction.cedi_balance}
-                  onChange={(e) => {
-                    const formatted = formatNumberInput(e.target.value);
-                    setNewTransaction(prev => ({ ...prev, cedi_balance: formatted }));
-                  }}
+                  value={formatNumberInput(newTransaction.cedi_balance)}
+                  onChange={handleNumberInput('cedi_balance')}
                   className="focus:ring-red-500 focus:border-red-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md py-3"
                   placeholder="0.00"
                 />
